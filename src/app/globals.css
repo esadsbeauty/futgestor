@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+:root {
+  --background: #07110d;
+  --surface: #0d1b15;
+  --surface-raised: #14251d;
+  --border: rgba(255,255,255,.09);
+  --foreground: #f2f7f4;
+  --muted: #91a39a;
+  --brand: #54e38e;
+  --brand-strong: #2ecf72;
+  --warning: #f5c451;
+  --danger: #ff6b6b;
+  --radius: 1.25rem;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(circle at 50% -20%, #163d2a 0, var(--background) 38rem); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
+button, input { font: inherit; }
+.card { border: 1px solid var(--border); border-radius: var(--radius); background: color-mix(in srgb, var(--surface) 90%, transparent); box-shadow: 0 20px 55px rgba(0,0,0,.18); }
+.focus-ring:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
