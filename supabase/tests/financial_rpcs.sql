@@ -16,6 +16,11 @@ begin
   if (select due_date from public.monthly_fees where id=fee) <> '2026-02-28' then raise exception 'due date was not clamped'; end if;
   perform public.mark_fee_paid(fee); perform public.mark_fee_paid(fee);
   if (select count(*) from public.transactions where monthly_fee_id=fee) <> 1 then raise exception 'fee payment duplicated income'; end if;
+  -- Editing player defaults must not rewrite history; only a later generated fee uses the new amount.
+  update public.players set monthly_fee=55,due_day=15 where id=player;
+  perform public.ensure_month_fees(org,'2026-03-01');
+  if (select amount from public.monthly_fees where player_id=player and reference_month='2026-02-01') <> 50 then raise exception 'editing player rewrote fee history'; end if;
+  if (select amount from public.monthly_fees where player_id=player and reference_month='2026-03-01') <> 55 then raise exception 'future fee ignored new player amount'; end if;
   insert into public.bills(organization_id,description,amount,due_date) values(org,'Água',10,current_date) returning id into bill;
   perform public.mark_bill_paid(bill); perform public.mark_bill_paid(bill);
   if (select count(*) from public.transactions t join public.bills b on b.transaction_id=t.id where b.id=bill) <> 1 then raise exception 'bill payment duplicated expense'; end if;
