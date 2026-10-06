@@ -1,0 +1,3 @@
+export default function Loading() {
+  return <div className="mx-auto max-w-5xl animate-pulse"><div className="flex justify-between"><div><div className="h-4 w-36 rounded bg-white/5"/><div className="mt-3 h-10 w-48 rounded-xl bg-white/10"/></div><div className="h-12 w-44 rounded-xl bg-white/5"/></div><div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="card h-28 bg-white/[.03]"/>)}</div><div className="card mt-5 h-40 bg-white/[.03]"/><div className="mt-10 grid gap-5 lg:grid-cols-2">{Array.from({ length: 2 }).map((_, index) => <div key={index}><div className="h-7 w-48 rounded bg-white/10"/><div className="card mt-4 h-64 bg-white/[.03]"/></div>)}</div></div>;
+}

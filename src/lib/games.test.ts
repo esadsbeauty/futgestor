@@ -1,0 +1,3 @@
+import { describe,expect,it } from "vitest";
+import { gameFinancialSummary } from "./games";
+describe("gameFinancialSummary",()=>{it("calculates the required 15-player scenario",()=>{const charges=Array.from({length:15},()=>({amount:10,status:"paid" as const}));const expenses=[{amount:100,status:"paid" as const}];expect(gameFinancialSummary(charges,expenses)).toEqual({expected:150,received:150,open:0,totalExpenses:100,paidExpenses:100,receivedResult:50,expectedResult:50});});it("separates pending income and unpaid expenses",()=>expect(gameFinancialSummary([{amount:10,status:"paid"},{amount:10,status:"pending"}],[{amount:15,status:"pending"}])).toEqual({expected:20,received:10,open:10,totalExpenses:15,paidExpenses:0,receivedResult:10,expectedResult:5}));});
