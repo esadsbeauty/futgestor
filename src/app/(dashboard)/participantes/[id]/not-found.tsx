@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function NotFound() { return <div className="card mx-auto max-w-xl p-8 text-center"><h1 className="text-2xl font-bold">Participante não encontrado</h1><p className="mt-2 text-sm text-[var(--muted)]">Ele não existe ou não pertence à sua organização.</p><Link href="/participantes" className="focus-ring mt-6 inline-flex rounded-xl bg-[var(--brand)] px-5 py-3 font-bold text-[#07110d]">Voltar para participantes</Link></div>; }
