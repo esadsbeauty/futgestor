@@ -1,0 +1,70 @@
+import { shouldGenerateMonthlyFee } from "./billing";
+import type { BillingMode, PlayerBillingType } from "@/types/billing";
+
+export type FeeStatus = "paid" | "pending" | "overdue";
+export function effectiveFeeStatus(status: string, dueDate: string, today = new Date()): FeeStatus {
+  if (status === "paid") return "paid";
+  const current = today.toISOString().slice(0, 10);
+  return dueDate < current ? "overdue" : "pending";
+}
+
+export const effectiveBillStatus = effectiveFeeStatus;
+
+export function participantMonthStatus(
+  playerStatus: "active" | "inactive",
+  fee: { status: string; due_date: string } | null,
+  today = new Date(),
+  billingMode: BillingMode = "monthly",
+  billingType: PlayerBillingType = "monthly",
+): FeeStatus | "inactive" | "per_game" {
+  if (playerStatus === "inactive") return "inactive";
+  if (!shouldGenerateMonthlyFee(billingMode, billingType)) return "per_game";
+  return fee ? effectiveFeeStatus(fee.status, fee.due_date, today) : "pending";
+}
+
+export function participantFinancialSummary(
+  fees: Array<{ status: string; amount: number; due_date: string }>,
+  today = new Date(),
+) {
+  return fees.reduce(
+    (summary, fee) => {
+      if (fee.status === "paid") summary.totalPaid += fee.amount;
+      else {
+        summary.outstanding += fee.amount;
+        if (effectiveFeeStatus(fee.status, fee.due_date, today) === "overdue") summary.overdueCount += 1;
+      }
+      return summary;
+    },
+    { totalPaid: 0, outstanding: 0, overdueCount: 0 },
+  );
+}
+export function financialSummary(transactions: Array<{ type: "income" | "expense"; amount: number }>) {
+  const income = transactions.filter((item) => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
+  const expense = transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
+  return { income, expense, balance: income - expense };
+}
+
+
+export function monthlyFinancialOverview(
+  allTransactions: Array<{ type: "income" | "expense"; amount: number }>,
+  monthTransactions: Array<{ type: "income" | "expense"; amount: number }>,
+  monthFees: Array<{ status: string; amount: number }>,
+) {
+  const current = financialSummary(allTransactions);
+  const month = financialSummary(monthTransactions);
+  const expectedFees = monthFees.reduce((sum, fee) => sum + fee.amount, 0);
+  const receivedFees = monthFees.filter((fee) => fee.status === "paid").reduce((sum, fee) => sum + fee.amount, 0);
+  return {
+    currentBalance: current.balance,
+    expectedFees,
+    receivedFees,
+    openFees: expectedFees - receivedFees,
+    monthIncome: month.income,
+    monthExpenses: month.expense,
+    monthResult: month.balance,
+  };
+}
+
+export function matchesFinancialStatus<T extends { effectiveStatus: FeeStatus }>(items: T[], status: FeeStatus | "all") {
+  return status === "all" ? items : items.filter((item) => item.effectiveStatus === status);
+}
