@@ -1,7 +1,7 @@
 -- Run after `supabase db reset`: psql "$DATABASE_URL" -f supabase/tests/financial_rpcs.sql
 begin;
 do $$
-declare u uuid := gen_random_uuid(); u2 uuid := gen_random_uuid(); u3 uuid := gen_random_uuid(); u4 uuid := gen_random_uuid(); org uuid; org2 uuid; org3 uuid; org4 uuid; player uuid; player2 uuid; player3 uuid; player4 uuid; player5 uuid; player6 uuid; fee uuid; fee2 uuid; bill uuid; bill2 uuid; game_id uuid; charge_id uuid; expense_id uuid; balance numeric;
+declare u uuid := gen_random_uuid(); u2 uuid := gen_random_uuid(); u3 uuid := gen_random_uuid(); u4 uuid := gen_random_uuid(); org uuid; org2 uuid; org3 uuid; org4 uuid; player uuid; player2 uuid; player3 uuid; player4 uuid; player5 uuid; player6 uuid; invited_player uuid; fee uuid; fee2 uuid; bill uuid; bill2 uuid; game_id uuid; charge_id uuid; expense_id uuid; balance numeric; access_token text; regenerated_token text;
 begin
   insert into auth.users(id,instance_id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
   values(u,'00000000-0000-0000-0000-000000000000','authenticated','authenticated','rpc-test@example.com','',now(),'{}','{"name":"Teste","organization_name":"Teste RPC","default_monthly_fee":50,"default_due_day":31}',now(),now());
@@ -88,6 +88,9 @@ begin
   insert into public.player_invites(organization_id,token,billing_type,created_by,max_uses)
     values(org2,'monthly-invite','per_game',u2,1);
   perform public.accept_player_invite('monthly-invite','Convidado mensal','(71) 99999-1001');
+  select id into invited_player from public.players where organization_id=org2 and phone='71999991001';
+  select token into access_token from public.player_access_tokens where player_id=invited_player and active;
+  if access_token is null then raise exception 'invite did not create player access'; end if;
   if not exists(select 1 from public.players where organization_id=org2 and phone='71999991001' and billing_type='monthly' and monthly_fee=70 and due_day=10) then raise exception 'monthly invite did not enforce organization defaults'; end if;
   if (select uses_count from public.player_invites where token='monthly-invite') <> 1 then raise exception 'invite use was not counted'; end if;
   begin perform public.accept_player_invite('monthly-invite','Limite','71999991002'); raise exception 'exhausted invite was accepted'; exception when raise_exception then if sqlerrm='exhausted invite was accepted' then raise; end if; end;
@@ -109,5 +112,30 @@ begin
   insert into public.player_invites(organization_id,token,billing_type,created_by) values(org4,'hybrid-invite','per_game',u4);
   perform public.accept_player_invite('hybrid-invite','Convidado híbrido','71999991006');
   if not exists(select 1 from public.players where organization_id=org4 and phone='71999991006' and billing_type='per_game') then raise exception 'hybrid invite ignored its billing type'; end if;
+
+  -- The public portal only accepts a valid active player and exposes future games from that organization.
+  if not exists(select 1 from public.get_player_portal(access_token) where available and player_name='Convidado mensal' and organization_name='Outra org') then raise exception 'valid portal did not return its player'; end if;
+  if (select last_used_at from public.player_access_tokens where token=access_token) is null then raise exception 'portal did not update last use'; end if;
+  if exists(select 1 from public.get_player_portal('invalid-token')) then raise exception 'invalid portal token returned data'; end if;
+  insert into public.games(organization_id,title,game_date,player_price,created_by) values(org2,'Jogo futuro',current_date+1,10,u2);
+  insert into public.games(organization_id,title,game_date,player_price,created_by) values(org2,'Jogo passado',current_date-1,10,u2);
+  insert into public.games(organization_id,title,game_date,player_price,created_by) values(org3,'Jogo de outra organização',current_date+1,10,u3);
+  if (select count(*) from public.get_player_portal_games(access_token)) <> 1 then raise exception 'portal games leaked another organization or returned a past game'; end if;
+
+  update public.player_access_tokens set expires_at=now()-interval '1 minute' where token=access_token;
+  if exists(select 1 from public.get_player_portal(access_token) where available) then raise exception 'expired access remained available'; end if;
+  update public.player_access_tokens set expires_at=null,active=false where token=access_token;
+  if exists(select 1 from public.get_player_portal(access_token) where available) then raise exception 'inactive access remained available'; end if;
+  update public.player_access_tokens set active=true where token=access_token;
+  update public.players set status='inactive' where id=invited_player;
+  if exists(select 1 from public.get_player_portal(access_token) where available) then raise exception 'inactive player accessed portal'; end if;
+  update public.players set status='active' where id=invited_player;
+
+  perform set_config('request.jwt.claim.sub',u2::text,true);
+  regenerated_token := public.regenerate_player_access(invited_player);
+  if regenerated_token=access_token or not exists(select 1 from public.player_access_tokens where token=regenerated_token and active) then raise exception 'access regeneration failed'; end if;
+  if exists(select 1 from public.player_access_tokens where token=access_token and active) then raise exception 'regeneration left old token active'; end if;
+  begin insert into public.player_access_tokens(organization_id,player_id,token) values(org3,invited_player,'cross-org-token'); raise exception 'cross-organization player token was allowed'; exception when foreign_key_violation then null; end;
+  if exists(select 1 from pg_policies where schemaname='public' and tablename='player_access_tokens' and policyname ilike '%anon%') then raise exception 'anonymous direct token policy exists'; end if;
 end $$;
 rollback;
