@@ -1,0 +1,1 @@
+import Link from "next/link";export default function NotFound(){return <div className="card mx-auto max-w-xl p-8 text-center"><h1 className="text-2xl font-black">Jogo não encontrado</h1><Link href="/jogos" className="mt-5 inline-block text-[var(--brand)]">Voltar para jogos</Link></div>}
