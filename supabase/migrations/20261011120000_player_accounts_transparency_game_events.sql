@@ -587,6 +587,8 @@ begin
 end;
 $$;
 
+revoke all on function public.accept_player_invite(text, text, text) from anon, authenticated;
+
 revoke all on function public.get_my_player_portal() from public;
 revoke all on function public.get_my_player_games() from public;
 revoke all on function public.respond_my_game_attendance(uuid, text) from public;
