@@ -8,6 +8,7 @@ import type {
   GameAttendanceSummary,
   GameCharge,
   GameExpense,
+  GameEvent,
   GameWithSummary,
 } from "@/types/games";
 import type { Participant } from "@/types/participants";
@@ -262,4 +263,38 @@ export async function getGameAttendanceSummary(
 
     players: result,
   };
+}
+
+export async function getGameEvents(
+  org: string,
+  game: string
+): Promise<GameEvent[]> {
+  const supabase = await createClient();
+
+  const [
+    { data: events, error: eventsError },
+    { data: players, error: playersError },
+  ] = await Promise.all([
+    supabase
+      .from("game_events")
+      .select("*")
+      .eq("organization_id", org)
+      .eq("game_id", game)
+      .order("created_at"),
+    supabase
+      .from("players")
+      .select("id,name")
+      .eq("organization_id", org),
+  ]);
+
+  if (eventsError || playersError) {
+    throw new Error("Não foi possível carregar os destaques do jogo.");
+  }
+
+  const names = new Map((players ?? []).map((player) => [player.id, player.name]));
+
+  return ((events ?? []) as GameEvent[]).map((event) => ({
+    ...event,
+    playerName: names.get(event.player_id) ?? "Participante",
+  }));
 }
