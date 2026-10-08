@@ -238,10 +238,15 @@ language sql
 security definer
 set search_path = ''
 stable
-as $$
+as $
   with me as (
-    select p.organization_id
+    select
+      p.organization_id,
+      o.show_cash_balance,
+      o.show_receivables,
+      o.show_payables
     from public.players p
+    join public.organizations o on o.id = p.organization_id
     where p.user_id = auth.uid()
       and p.status = 'active'
     limit 1
@@ -279,9 +284,12 @@ as $$
       where ge.status = 'pending'
     ) x
   )
-  select cash.value, receivable_values.value, payable_values.value
-  from cash, receivable_values, payable_values;
-$$;
+  select
+    case when me.show_cash_balance then cash.value else null end,
+    case when me.show_receivables then receivable_values.value else null end,
+    case when me.show_payables then payable_values.value else null end
+  from me, cash, receivable_values, payable_values;
+$;
 
 create or replace function public.get_my_group_pending_players()
 returns table(
@@ -292,10 +300,14 @@ language sql
 security definer
 set search_path = ''
 stable
-as $$
+as $
   with me as (
-    select p.organization_id
+    select
+      p.organization_id,
+      o.show_pending_players,
+      o.show_individual_values
     from public.players p
+    join public.organizations o on o.id = p.organization_id
     where p.user_id = auth.uid()
       and p.status = 'active'
     limit 1
@@ -305,18 +317,23 @@ as $$
     from public.monthly_fees mf
     join me on me.organization_id = mf.organization_id
     where mf.status = 'pending'
+      and me.show_pending_players
     union all
     select gc.player_id, gc.amount
     from public.game_charges gc
     join me on me.organization_id = gc.organization_id
     where gc.status = 'pending'
+      and me.show_pending_players
   )
-  select p.name, sum(pending.amount)::numeric
+  select
+    p.name,
+    case when bool_or(me.show_individual_values) then sum(pending.amount)::numeric else null end
   from pending
   join public.players p on p.id = pending.player_id
+  join me on true
   group by p.id, p.name
   order by sum(pending.amount) desc, p.name;
-$$;
+$;
 
 create or replace function public.get_my_recent_game_events()
 returns table(
