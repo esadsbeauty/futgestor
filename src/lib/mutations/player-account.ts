@@ -57,3 +57,78 @@ export async function logoutPlayer() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+
+export type PlayerActivationActionState = {
+  ok: boolean;
+  message?: string;
+  fieldErrors?: Record<string, string[] | undefined>;
+};
+
+const activationSchema = z.object({
+  email: z.string().trim().email("Informe um e-mail válido."),
+  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.").max(128),
+});
+
+export async function activateExistingPlayerAccount(
+  _: PlayerActivationActionState,
+  formData: FormData
+): Promise<PlayerActivationActionState> {
+  const token = String(formData.get("token") ?? "");
+  const origin = String(formData.get("origin") ?? "");
+
+  const parsed = activationSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: "Revise os campos.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?next=/meu-grupo`,
+      data: {
+        account_type: "player",
+        player_access_token: token,
+      },
+    },
+  });
+
+  if (error) {
+    const message = error.message.toLowerCase();
+
+    if (
+      message.includes("already") ||
+      message.includes("registered") ||
+      message.includes("exists")
+    ) {
+      return {
+        ok: false,
+        message:
+          "Este e-mail já possui uma conta. Entre com sua senha ou recupere o acesso.",
+      };
+    }
+
+    return {
+      ok: false,
+      message: "Não foi possível criar sua conta. Solicite um novo link.",
+    };
+  }
+
+  return {
+    ok: true,
+    message: data.session
+      ? "Conta ativada. Você já pode acessar seu grupo."
+      : "Conta ativada. Confira seu e-mail para confirmar o acesso e depois faça login.",
+  };
+}
