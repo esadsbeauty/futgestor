@@ -29,13 +29,14 @@ export async function updateSession(request: NextRequest) {
   const isLegacyPlayerPortal =
     pathname.startsWith("/meu-grupo/") && pathname !== "/meu-grupo/";
   const isInvite = pathname.startsWith("/convite/");
+  const isAccountActivation = pathname.startsWith("/ativar-conta/");
   const isAuth =
     pathname.startsWith("/login") ||
     pathname.startsWith("/cadastro") ||
     pathname.startsWith("/recuperar-senha") ||
     pathname.startsWith("/auth");
 
-  if (isInvite || isLegacyPlayerPortal) return response;
+  if (isInvite || isAccountActivation || isLegacyPlayerPortal) return response;
 
   if (!user && !isAuth) {
     return NextResponse.redirect(new URL("/login", request.url));
