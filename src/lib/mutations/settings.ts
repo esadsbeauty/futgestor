@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 import { createClient } from "@/lib/supabase/server";
-import { billingModeSettingsSchema, financialSettingsSchema, organizationSettingsSchema, passwordSettingsSchema, profileSettingsSchema } from "@/lib/validators/settings";
+import { billingModeSettingsSchema, financialSettingsSchema, financialTransparencySettingsSchema, organizationSettingsSchema, passwordSettingsSchema, profileSettingsSchema } from "@/lib/validators/settings";
 
 export type SettingsActionState = {
   ok: boolean;
@@ -102,4 +102,55 @@ export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+
+export async function updateFinancialTransparency(
+  previous: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const parsed = financialTransparencySettingsSchema.safeParse({
+    show_cash_balance: formData.get("show_cash_balance"),
+    show_receivables: formData.get("show_receivables"),
+    show_payables: formData.get("show_payables"),
+    show_pending_players: formData.get("show_pending_players"),
+    show_individual_values: formData.get("show_individual_values"),
+  });
+
+  if (!parsed.success) {
+    return validationFailure(previous, parsed.error.flatten().fieldErrors);
+  }
+
+  try {
+    const organization = await getCurrentOrganizationForUser();
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("organizations")
+      .update(parsed.data)
+      .eq("id", organization.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error || !data) {
+      return failure(
+        previous,
+        "Não foi possível atualizar a transparência financeira."
+      );
+    }
+
+    revalidatePath("/configuracoes");
+    revalidatePath("/meu-grupo");
+
+    return {
+      ok: true,
+      message: "Transparência financeira atualizada.",
+      revision: previous.revision + 1,
+    };
+  } catch {
+    return failure(
+      previous,
+      "Não foi possível atualizar a transparência financeira."
+    );
+  }
 }
