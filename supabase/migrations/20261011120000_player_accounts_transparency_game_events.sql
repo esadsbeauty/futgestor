@@ -381,9 +381,12 @@ declare
   due_day integer;
   invite_record public.player_invites;
   organization_record public.organizations;
+  access_record public.player_access_tokens;
+  player_record public.players;
   normalized_phone text;
   effective_type text;
   invite_token text;
+  player_access_token text;
 begin
   insert into public.profiles(id, name, email)
   values(
@@ -393,6 +396,50 @@ begin
   );
 
   if coalesce(new.raw_user_meta_data->>'account_type', '') = 'player' then
+    player_access_token := nullif(new.raw_user_meta_data->>'player_access_token', '');
+
+    if player_access_token is not null then
+      select pat.*
+      into access_record
+      from public.player_access_tokens pat
+      where pat.token = player_access_token
+      for update;
+
+      if access_record.id is null
+        or not access_record.active
+        or (access_record.expires_at is not null and access_record.expires_at <= now())
+      then
+        raise exception 'access unavailable' using errcode = 'P0001';
+      end if;
+
+      select p.*
+      into player_record
+      from public.players p
+      where p.id = access_record.player_id
+        and p.organization_id = access_record.organization_id
+      for update;
+
+      if player_record.id is null or player_record.status <> 'active' then
+        raise exception 'player unavailable' using errcode = 'P0001';
+      end if;
+
+      if player_record.user_id is not null then
+        raise exception 'player account already exists' using errcode = '23505';
+      end if;
+
+      update public.players
+      set user_id = new.id
+      where id = player_record.id
+        and organization_id = player_record.organization_id;
+
+      update public.player_access_tokens
+      set active = false,
+          updated_at = now()
+      where id = access_record.id;
+
+      return new;
+    end if;
+
     invite_token := nullif(new.raw_user_meta_data->>'invite_token', '');
 
     if invite_token is null then
