@@ -49,7 +49,7 @@ export async function updateSession(request: NextRequest) {
     );
   }
 
-  if (user && isPlayer && pathname !== "/meu-grupo") {
+  if (user && isPlayer && pathname !== "/meu-grupo" && pathname !== "/nova-senha") {
     return NextResponse.redirect(new URL("/meu-grupo", request.url));
   }
 
