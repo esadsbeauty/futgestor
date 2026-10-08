@@ -232,7 +232,7 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
                   <span className="font-semibold">{player.player_name}</span>
                   {portal.show_individual_values ? (
                     <strong className="text-[var(--warning)]">
-                      {formatCurrency(player.amount)}
+                      {formatCurrency(player.amount ?? 0)}
                     </strong>
                   ) : (
                     <span className="text-xs font-bold text-[var(--warning)]">
