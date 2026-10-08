@@ -198,8 +198,7 @@ export async function acceptPlayerInviteWithAccount(
 
     if (
       message.includes("whatsapp") ||
-      message.includes("duplicate") ||
-      error.code === "23505"
+      message.includes("duplicate")
     ) {
       return fail("Este WhatsApp já está cadastrado neste grupo.");
     }
