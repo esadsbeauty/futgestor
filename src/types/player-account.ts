@@ -31,14 +31,14 @@ export type PlayerAccountGame = {
 };
 
 export type PlayerAccountFinance = {
-  cash_balance: number;
-  receivables: number;
-  payables: number;
+  cash_balance: number | null;
+  receivables: number | null;
+  payables: number | null;
 };
 
 export type PlayerPendingAmount = {
   player_name: string;
-  amount: number;
+  amount: number | null;
 };
 
 export type PlayerRecentGameEvent = {
