@@ -137,5 +137,199 @@ begin
   if exists(select 1 from public.player_access_tokens where token=access_token and active) then raise exception 'regeneration left old token active'; end if;
   begin insert into public.player_access_tokens(organization_id,player_id,token) values(org3,invited_player,'cross-org-token'); raise exception 'cross-organization player token was allowed'; exception when foreign_key_violation then null; end;
   if exists(select 1 from pg_policies where schemaname='public' and tablename='player_access_tokens' and policyname ilike '%anon%') then raise exception 'anonymous direct token policy exists'; end if;
+  -- Game attendance through the public player portal.
+  declare
+    attendance_game uuid;
+    other_org_game uuid;
+    attendance_token text;
+    attendance_player uuid;
+    saved_attendance text;
+  begin
+    -- Use the invited player/token created by the portal tests.
+    select p.id
+      into attendance_player
+    from public.players p
+    where p.organization_id = org2
+      and p.phone = '71999991001';
+
+    select pat.token
+      into attendance_token
+    from public.player_access_tokens pat
+    where pat.organization_id = org2
+      and pat.player_id = attendance_player
+      and pat.active
+    limit 1;
+
+    insert into public.games(
+      organization_id,
+      title,
+      game_date,
+      player_price,
+      created_by
+    )
+    values(
+      org2,
+      'Jogo presença',
+      current_date + 2,
+      10,
+      u2
+    )
+    returning id into attendance_game;
+
+    -- Valid confirmation.
+    saved_attendance :=
+      public.respond_game_attendance(
+        attendance_token,
+        attendance_game,
+        'confirmed'
+      );
+
+    if saved_attendance <> 'confirmed' then
+      raise exception 'attendance confirmation failed';
+    end if;
+
+    if (
+      select count(*)
+      from public.game_attendances
+      where game_id = attendance_game
+        and player_id = attendance_player
+    ) <> 1 then
+      raise exception 'attendance was not created exactly once';
+    end if;
+
+    -- Changing the response must update instead of duplicate.
+    saved_attendance :=
+      public.respond_game_attendance(
+        attendance_token,
+        attendance_game,
+        'declined'
+      );
+
+    if saved_attendance <> 'declined' then
+      raise exception 'attendance decline failed';
+    end if;
+
+    if (
+      select count(*)
+      from public.game_attendances
+      where game_id = attendance_game
+        and player_id = attendance_player
+    ) <> 1 then
+      raise exception 'attendance response was duplicated';
+    end if;
+
+    if not exists(
+      select 1
+      from public.get_player_portal_games(attendance_token)
+      where game_id = attendance_game
+        and attendance_status = 'declined'
+    ) then
+      raise exception 'portal game did not return attendance status';
+    end if;
+
+    -- Invalid status.
+    begin
+      perform public.respond_game_attendance(
+        attendance_token,
+        attendance_game,
+        'maybe'
+      );
+
+      raise exception 'invalid attendance status was accepted';
+    exception
+      when raise_exception then
+        if sqlerrm = 'invalid attendance status was accepted' then
+          raise;
+        end if;
+    end;
+
+    -- Invalid token.
+    begin
+      perform public.respond_game_attendance(
+        'invalid-token',
+        attendance_game,
+        'confirmed'
+      );
+
+      raise exception 'invalid attendance token was accepted';
+    exception
+      when raise_exception then
+        if sqlerrm = 'invalid attendance token was accepted' then
+          raise;
+        end if;
+    end;
+
+    -- Game from another organization.
+    insert into public.games(
+      organization_id,
+      title,
+      game_date,
+      player_price,
+      created_by
+    )
+    values(
+      org3,
+      'Outro grupo',
+      current_date + 2,
+      10,
+      u3
+    )
+    returning id into other_org_game;
+
+    begin
+      perform public.respond_game_attendance(
+        attendance_token,
+        other_org_game,
+        'confirmed'
+      );
+
+      raise exception 'cross-organization attendance was accepted';
+    exception
+      when raise_exception then
+        if sqlerrm = 'cross-organization attendance was accepted' then
+          raise;
+        end if;
+    end;
+
+    -- Past game.
+    update public.games
+    set game_date = current_date - 1
+    where id = attendance_game;
+
+    begin
+      perform public.respond_game_attendance(
+        attendance_token,
+        attendance_game,
+        'confirmed'
+      );
+
+      raise exception 'past game attendance was accepted';
+    exception
+      when raise_exception then
+        if sqlerrm = 'past game attendance was accepted' then
+          raise;
+        end if;
+    end;
+
+    -- The attendance itself must not create financial records.
+    if exists(
+      select 1
+      from public.game_charges
+      where game_id = attendance_game
+        and player_id = attendance_player
+    ) then
+      raise exception 'attendance unexpectedly created a game charge';
+    end if;
+
+    if exists(
+      select 1
+      from public.transactions
+      where player_id = attendance_player
+        and category = 'Jogo'
+        and description like '%Jogo presença%'
+    ) then
+      raise exception 'attendance unexpectedly created a transaction';
+    end if;
+  end;
 end $$;
 rollback;

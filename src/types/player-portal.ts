@@ -1,5 +1,7 @@
 import type { PlayerBillingType } from "@/types/billing";
 
+export type GameAttendanceStatus = "pending" | "confirmed" | "declined";
+
 export type PlayerAccessToken = {
   id: string;
   organization_id: string;
@@ -31,4 +33,5 @@ export type PlayerPortalGame = {
   location: string | null;
   player_price: number;
   status: string;
+  attendance_status: GameAttendanceStatus;
 };
