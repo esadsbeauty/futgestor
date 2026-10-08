@@ -73,7 +73,7 @@ export async function recover(
   const { error } = await supabase.auth.resetPasswordForEmail(
     String(formData.get("email")),
     {
-      redirectTo: `${formData.get("origin")}/auth/callback?next=/configuracoes`,
+      redirectTo: `${formData.get("origin")}/auth/callback?next=/nova-senha`,
     }
   );
 
@@ -82,4 +82,38 @@ export async function recover(
       ? error.message
       : "Enviamos as instruções para o seu e-mail.",
   };
+}
+
+
+export async function updateRecoveredPassword(
+  _: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("password_confirmation") ?? "");
+
+  if (password.length < 8) {
+    return { error: "A senha deve ter pelo menos 8 caracteres." };
+  }
+
+  if (password !== confirmation) {
+    return { error: "As senhas precisam ser iguais." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "O link expirou. Solicite uma nova recuperação de senha." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: "Não foi possível alterar a senha. Solicite um novo link." };
+  }
+
+  redirect(user.user_metadata?.account_type === "player" ? "/meu-grupo" : "/dashboard");
 }
