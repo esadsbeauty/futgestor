@@ -2,7 +2,7 @@
 
 import { Building2, CircleDollarSign, LockKeyhole, LogOut, UserRound } from "lucide-react";
 import { useActionState, useState } from "react";
-import { logout, updateBillingMode, updateFinancialSettings, updateOrganizationSettings, updatePassword, updateProfile, type SettingsActionState } from "@/lib/mutations/settings";
+import { logout, updateBillingMode, updateFinancialSettings, updateFinancialTransparency, updateOrganizationSettings, updatePassword, updateProfile, type SettingsActionState } from "@/lib/mutations/settings";
 import { ActionToast } from "@/components/ui/action-toast";
 import { SettingsSection } from "@/components/futgestor/settings-section";
 import type { SettingsData } from "@/types/settings";
@@ -35,6 +35,32 @@ function BillingModeForm({ mode }: { mode: BillingMode }) {
   return <form action={action} className="space-y-4"><label className="block"><span className="text-sm font-medium">Modelo de cobrança</span><select name="billing_mode" value={selected} onChange={(event) => setSelected(event.target.value as BillingMode)} className="input"><option value="monthly">Mensal</option><option value="per_game">Por jogo</option><option value="hybrid">Mensal + avulsos</option></select><FieldError errors={state.fieldErrors?.billing_mode}/></label><p className="rounded-xl bg-white/[.04] p-3 text-xs leading-5 text-[var(--muted)]">{billingDescriptions[selected]}</p><FormFeedback state={state}/><SubmitButton pending={pending}>Salvar modelo de cobrança</SubmitButton></form>;
 }
 
+
+function TransparencyForm({
+  showCash,
+  showReceivables,
+  showPayables,
+  showPending,
+  showIndividualValues,
+}: {
+  showCash: boolean;
+  showReceivables: boolean;
+  showPayables: boolean;
+  showPending: boolean;
+  showIndividualValues: boolean;
+}) {
+  const [state, action, pending] = useActionState(updateFinancialTransparency, initialState);
+  const options = [
+    { name: "show_cash_balance", label: "Mostrar saldo do caixa", defaultChecked: showCash },
+    { name: "show_receivables", label: "Mostrar total a receber", defaultChecked: showReceivables },
+    { name: "show_payables", label: "Mostrar total a pagar", defaultChecked: showPayables },
+    { name: "show_pending_players", label: "Mostrar participantes pendentes", defaultChecked: showPending },
+    { name: "show_individual_values", label: "Mostrar valores individuais das pendências", defaultChecked: showIndividualValues },
+  ];
+
+  return <form action={action} className="space-y-4"><div className="space-y-2">{options.map((option) => <label key={option.name} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] p-3"><input type="checkbox" name={option.name} defaultChecked={option.defaultChecked} className="size-4"/><span className="text-sm font-medium">{option.label}</span></label>)}</div><p className="rounded-xl bg-white/[.04] p-3 text-xs leading-5 text-[var(--muted)]">Essas opções controlam somente o que os participantes podem visualizar na área deles. Eles não poderão editar informações financeiras.</p><FormFeedback state={state}/><SubmitButton pending={pending}>Salvar transparência</SubmitButton></form>;
+}
+
 function ProfileForm({ name, email }: { name: string; email: string | null }) {
   const [state, action, pending] = useActionState(updateProfile, initialState);
   return <form action={action} className="space-y-5"><label className="block"><span className="text-sm font-medium">Nome</span><input name="name" required defaultValue={name} autoComplete="name" className="input"/><FieldError errors={state.fieldErrors?.name}/></label><label className="block"><span className="text-sm font-medium">E-mail</span><input value={email ?? ""} readOnly type="email" className="input cursor-not-allowed opacity-70"/><span className="mt-1.5 block text-xs text-[var(--muted)]">A troca de e-mail não está disponível nesta etapa.</span></label><FormFeedback state={state}/><SubmitButton pending={pending}>Salvar perfil</SubmitButton></form>;
@@ -46,5 +72,5 @@ function SecurityForm() {
 }
 
 export function SettingsForms({ data }: { data: SettingsData }) {
-  return <div className="space-y-5"><SettingsSection id="grupo" title="Dados do grupo" description="Informações básicas que identificam o seu baba." icon={Building2}><GroupForm name={data.organization.name}/></SettingsSection><SettingsSection id="financeiro" title="Cobrança e mensalidade" description="Defina como o grupo cobra seus participantes." icon={CircleDollarSign}><BillingModeForm mode={data.organization.billing_mode}/><div className="my-7 border-t border-[var(--border)]"/>{data.organization.billing_mode === "per_game" ? <p className="rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/10 p-4 text-sm leading-6">Este grupo cobra por jogo, então a mensalidade padrão não é utilizada.</p> : <FinancialDefaultsForm fee={data.organization.default_monthly_fee} dueDay={data.organization.default_due_day}/>}</SettingsSection><SettingsSection id="perfil" title="Meu perfil" description="Mantenha o nome usado na sua conta atualizado." icon={UserRound}><ProfileForm name={data.profile.name} email={data.profile.email}/></SettingsSection><SettingsSection id="seguranca" title="Segurança" description="Atualize sua senha ou encerre a sessão atual." icon={LockKeyhole}><SecurityForm/></SettingsSection></div>;
+  return <div className="space-y-5"><SettingsSection id="grupo" title="Dados do grupo" description="Informações básicas que identificam o seu baba." icon={Building2}><GroupForm name={data.organization.name}/></SettingsSection><SettingsSection id="financeiro" title="Cobrança e mensalidade" description="Defina como o grupo cobra seus participantes." icon={CircleDollarSign}><BillingModeForm mode={data.organization.billing_mode}/><div className="my-7 border-t border-[var(--border)]"/>{data.organization.billing_mode === "per_game" ? <p className="rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/10 p-4 text-sm leading-6">Este grupo cobra por jogo, então a mensalidade padrão não é utilizada.</p> : <FinancialDefaultsForm fee={data.organization.default_monthly_fee} dueDay={data.organization.default_due_day}/>}<div className="my-7 border-t border-[var(--border)]"/><div><h3 className="font-semibold">Transparência para participantes</h3><p className="mt-1 mb-4 text-sm text-[var(--muted)]">Escolha quais informações financeiras ficam visíveis na área dos jogadores.</p><TransparencyForm showCash={data.organization.show_cash_balance} showReceivables={data.organization.show_receivables} showPayables={data.organization.show_payables} showPending={data.organization.show_pending_players} showIndividualValues={data.organization.show_individual_values}/></div></SettingsSection><SettingsSection id="perfil" title="Meu perfil" description="Mantenha o nome usado na sua conta atualizado." icon={UserRound}><ProfileForm name={data.profile.name} email={data.profile.email}/></SettingsSection><SettingsSection id="seguranca" title="Segurança" description="Atualize sua senha ou encerre a sessão atual." icon={LockKeyhole}><SecurityForm/></SettingsSection></div>;
 }
