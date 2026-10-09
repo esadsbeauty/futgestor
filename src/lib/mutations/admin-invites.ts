@@ -17,8 +17,8 @@ const schema = z.object({
   origin: z.string().trim().url().optional().or(z.literal("")),
 });
 
-function getAppOrigin(requestOrigin: string) {
-  return (process.env.NEXT_PUBLIC_APP_URL || requestOrigin).replace(/\/$/, "");
+function getAppOrigin(requestOrigin?: string) {
+  return (process.env.NEXT_PUBLIC_APP_URL || requestOrigin || "").replace(/\/$/, "");
 }
 
 export async function acceptAdminInvite(
