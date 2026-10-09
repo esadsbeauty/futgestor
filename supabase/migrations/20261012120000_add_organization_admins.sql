@@ -61,6 +61,12 @@ on public.admin_invites
 for delete
 using (public.is_org_owner(organization_id));
 
+drop policy if exists "organizations delete members" on public.organizations;
+create policy "organizations delete owner"
+on public.organizations
+for delete
+using (public.is_org_owner(id));
+
 drop policy if exists "membership insert self owner" on public.organization_members;
 drop policy if exists "membership update members" on public.organization_members;
 drop policy if exists "membership delete members" on public.organization_members;
