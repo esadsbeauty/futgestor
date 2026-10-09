@@ -46,7 +46,7 @@ export async function acceptAdminInvite(
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${getAppOrigin(parsed.data.origin)}/auth/callback?next=/dashboard`,
+      emailRedirectTo: `${getAppOrigin(parsed.data.origin)}/auth/callback`,
       data: {
         account_type: "admin",
         admin_invite_token: parsed.data.token,
