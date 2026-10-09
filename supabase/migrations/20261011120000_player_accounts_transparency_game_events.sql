@@ -238,7 +238,7 @@ language sql
 security definer
 set search_path = ''
 stable
-as $
+as $$
   with me as (
     select
       p.organization_id,
@@ -289,7 +289,7 @@ as $
     case when me.show_receivables then receivable_values.value else null end,
     case when me.show_payables then payable_values.value else null end
   from me, cash, receivable_values, payable_values;
-$;
+$$;
 
 create or replace function public.get_my_group_pending_players()
 returns table(
@@ -300,7 +300,7 @@ language sql
 security definer
 set search_path = ''
 stable
-as $
+as $$
   with me as (
     select
       p.organization_id,
@@ -333,7 +333,7 @@ as $
   join me on true
   group by p.id, p.name
   order by sum(pending.amount) desc, p.name;
-$;
+$$;
 
 create or replace function public.get_my_recent_game_events()
 returns table(
