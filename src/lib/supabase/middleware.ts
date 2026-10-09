@@ -30,13 +30,14 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/meu-grupo/") && pathname !== "/meu-grupo/";
   const isInvite = pathname.startsWith("/convite/");
   const isAccountActivation = pathname.startsWith("/ativar-conta/");
+  const isAdminInvite = pathname.startsWith("/convite-admin/");
   const isAuth =
     pathname.startsWith("/login") ||
     pathname.startsWith("/cadastro") ||
     pathname.startsWith("/recuperar-senha") ||
     pathname.startsWith("/auth");
 
-  if (isInvite || isAccountActivation || isLegacyPlayerPortal) return response;
+  if (isInvite || isAccountActivation || isAdminInvite || isLegacyPlayerPortal) return response;
 
   if (!user && !isAuth) {
     return NextResponse.redirect(new URL("/login", request.url));
