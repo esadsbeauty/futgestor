@@ -28,4 +28,5 @@ export type SettingsData = {
   currentRole: "owner" | "admin" | "member";
   admins: OrganizationAdmin[];
   adminInvites: AdminInvite[];
+  appUrl: string;
 };
