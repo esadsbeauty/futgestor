@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
 import { billingModeSettingsSchema, financialSettingsSchema, financialTransparencySettingsSchema, organizationSettingsSchema, passwordSettingsSchema, profileSettingsSchema } from "@/lib/validators/settings";
 
 export type SettingsActionState = {
@@ -11,6 +12,7 @@ export type SettingsActionState = {
   message?: string;
   revision: number;
   fieldErrors?: Record<string, string[] | undefined>;
+  inviteUrl?: string;
 };
 
 const failure = (previous: SettingsActionState, message: string): SettingsActionState => ({ ok: false, message, revision: previous.revision + 1 });
@@ -152,5 +154,141 @@ export async function updateFinancialTransparency(
       previous,
       "Não foi possível atualizar a transparência financeira."
     );
+  }
+}
+
+
+const adminInviteSchema = z.object({
+  email: z.string().trim().email("Informe um e-mail válido."),
+  origin: z.string().trim().url().optional().or(z.literal("")),
+});
+
+async function requireOrganizationOwner() {
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sua sessão expirou.");
+
+  const { data, error } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", organization.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error || data?.role !== "owner") {
+    throw new Error("Somente o proprietário pode gerenciar administradores.");
+  }
+
+  return { organization, supabase, user };
+}
+
+export async function createAdminInvite(
+  previous: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const parsed = adminInviteSchema.safeParse({
+    email: formData.get("email"),
+    origin: formData.get("origin") || "",
+  });
+
+  if (!parsed.success) {
+    return validationFailure(previous, parsed.error.flatten().fieldErrors);
+  }
+
+  try {
+    const { organization, supabase, user } = await requireOrganizationOwner();
+    const email = parsed.data.email.toLowerCase();
+
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingProfile) {
+      return failure(
+        previous,
+        "Este e-mail já possui uma conta. Use outro e-mail para o administrador."
+      );
+    }
+
+    await supabase
+      .from("admin_invites")
+      .update({ active: false })
+      .eq("organization_id", organization.id)
+      .ilike("email", email)
+      .eq("active", true)
+      .is("accepted_at", null);
+
+    const token = crypto.randomUUID() + crypto.randomUUID().replaceAll("-", "");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { error } = await supabase.from("admin_invites").insert({
+      organization_id: organization.id,
+      created_by: user.id,
+      email,
+      token,
+      expires_at: expiresAt,
+    });
+
+    if (error) {
+      return failure(previous, "Não foi possível gerar o convite de administrador.");
+    }
+
+    const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || parsed.data.origin).replace(/\/$/, "");
+    const inviteUrl = appOrigin ? `${appOrigin}/convite-admin/${token}` : undefined;
+
+    revalidatePath("/configuracoes");
+
+    return {
+      ok: true,
+      message: "Convite de administrador criado.",
+      revision: previous.revision + 1,
+      inviteUrl,
+    };
+  } catch (error) {
+    return failure(
+      previous,
+      error instanceof Error ? error.message : "Não foi possível gerar o convite."
+    );
+  }
+}
+
+export async function removeOrganizationAdmin(formData: FormData) {
+  const memberId = String(formData.get("member_id") ?? "");
+
+  try {
+    const { organization, supabase } = await requireOrganizationOwner();
+
+    await supabase
+      .from("organization_members")
+      .delete()
+      .eq("id", memberId)
+      .eq("organization_id", organization.id)
+      .eq("role", "admin");
+
+    revalidatePath("/configuracoes");
+  } catch {
+    return;
+  }
+}
+
+export async function deactivateAdminInvite(formData: FormData) {
+  const inviteId = String(formData.get("invite_id") ?? "");
+
+  try {
+    const { organization, supabase } = await requireOrganizationOwner();
+
+    await supabase
+      .from("admin_invites")
+      .update({ active: false })
+      .eq("id", inviteId)
+      .eq("organization_id", organization.id);
+
+    revalidatePath("/configuracoes");
+  } catch {
+    return;
   }
 }
