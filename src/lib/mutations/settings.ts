@@ -237,7 +237,7 @@ export async function createAdminInvite(
       return failure(previous, "Não foi possível gerar o convite de administrador.");
     }
 
-    const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || parsed.data.origin).replace(/\/$/, "");
+    const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || parsed.data.origin || "").replace(/\/$/, "");
     const inviteUrl = appOrigin ? `${appOrigin}/convite-admin/${token}` : undefined;
 
     revalidatePath("/configuracoes");
