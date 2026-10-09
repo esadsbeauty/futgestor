@@ -22,6 +22,10 @@ export type InviteActionState = {
 
 const fail = (message: string): InviteActionState => ({ ok: false, message });
 
+function getAppOrigin(requestOrigin: string) {
+  return (process.env.NEXT_PUBLIC_APP_URL || requestOrigin).replace(/\/$/, "");
+}
+
 export async function createPlayerInvite(
   _: InviteActionState,
   formData: FormData
@@ -173,7 +177,7 @@ export async function acceptPlayerInviteWithAccount(
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/meu-grupo`,
+      emailRedirectTo: `${getAppOrigin(origin)}/auth/callback?next=/meu-grupo`,
       data: {
         account_type: "player",
         invite_token: token,
