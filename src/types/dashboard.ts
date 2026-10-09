@@ -8,6 +8,12 @@ export type DashboardFeeSummary = {
   paidPercentage: number;
 };
 
+export type GoalRankingEntry = {
+  playerId: string;
+  playerName: string;
+  goals: number;
+};
+
 export type DashboardSnapshot = {
   profileName: string | null;
   participantCount: number;
@@ -16,4 +22,5 @@ export type DashboardSnapshot = {
   fees: FeeWithPlayer[];
   upcomingBills: BillWithStatus[];
   recentTransactions: TransactionWithOrigin[];
+  goalRanking: GoalRankingEntry[];
 };
