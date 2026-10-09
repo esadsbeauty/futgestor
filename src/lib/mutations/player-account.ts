@@ -11,6 +11,10 @@ export type PlayerAccountActionState = {
   status?: "confirmed" | "declined";
 };
 
+function getAppOrigin(requestOrigin: string) {
+  return (process.env.NEXT_PUBLIC_APP_URL || requestOrigin).replace(/\/$/, "");
+}
+
 const attendanceSchema = z.object({
   game_id: z.string().uuid(),
   status: z.enum(["confirmed", "declined"]),
@@ -96,7 +100,7 @@ export async function activateExistingPlayerAccount(
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/meu-grupo`,
+      emailRedirectTo: `${getAppOrigin(origin)}/auth/callback?next=/meu-grupo`,
       data: {
         account_type: "player",
         player_access_token: token,
