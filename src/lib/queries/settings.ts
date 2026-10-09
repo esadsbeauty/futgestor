@@ -62,5 +62,6 @@ export async function getSettingsData(): Promise<SettingsData> {
     currentRole,
     admins,
     adminInvites,
+    appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "",
   };
 }
