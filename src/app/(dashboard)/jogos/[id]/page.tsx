@@ -14,6 +14,7 @@ import {
   GameEventForm,
 } from "@/components/futgestor/game-detail-actions";
 import { GameSummary } from "@/components/futgestor/game-summary";
+import { PublicGameInviteCard } from "@/components/futgestor/public-game-invite-card";
 import {
   formatCurrency,
   formatDate,
@@ -67,6 +68,7 @@ export default async function GamePage({
     eligible,
     attendance,
     events,
+    guestConfirmations,
   ] = await Promise.all([
     getGameCharges(o.id, id),
     getGameExpenses(o.id, id),
@@ -77,6 +79,7 @@ export default async function GamePage({
     ),
     getGameAttendanceSummary(o.id, id),
     getGameEvents(o.id, id),
+    getGameGuestConfirmations(o.id, id),
   ]);
 
   const summary = gameFinancialSummary(
@@ -127,6 +130,12 @@ export default async function GamePage({
       <div className="mt-5">
         <GameSummary summary={summary} />
       </div>
+
+      <PublicGameInviteCard
+        game={game}
+        confirmations={guestConfirmations}
+        appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+      />
 
       <section className="mt-10">
         <div>
