@@ -9,6 +9,7 @@ set public_invite_token = replace(gen_random_uuid()::text, '-', '') || replace(g
 where public_invite_token is null;
 
 alter table public.games
+  alter column public_invite_token set default (replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')),
   alter column public_invite_token set not null;
 
 create table public.game_guest_confirmations (
