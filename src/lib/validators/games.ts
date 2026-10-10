@@ -19,6 +19,7 @@ export const gameSchema = z.object({
     .max(1000)
     .transform((value) => value || null),
   status: z.enum(["scheduled", "completed", "canceled"]),
+  game_format: z.enum(["court", "field"]),
 });
 
 export const gameExpenseSchema = z.object({
@@ -35,4 +36,20 @@ export const gameEventSchema = z.object({
   player_id: z.string().uuid("Participante inválido."),
   event_type: z.enum(["goal", "yellow_card", "red_card"]),
   quantity: z.coerce.number().int().min(1).max(20),
+});
+
+export const publicGameConfirmationSchema = z.object({
+  name: z.string().trim().min(2, "Informe seu nome.").max(100),
+  position: z.enum([
+    "goalkeeper",
+    "fixed",
+    "winger",
+    "pivot",
+    "full_back",
+    "center_back",
+    "defensive_mid",
+    "midfielder",
+    "striker",
+    "other",
+  ]),
 });
