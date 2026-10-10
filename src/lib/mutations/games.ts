@@ -3,11 +3,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 import { createClient } from "@/lib/supabase/server";
-import { gameEventSchema,gameExpenseSchema,gamePlayersSchema,gameSchema } from "@/lib/validators/games";
+import { gameEventSchema,gameExpenseSchema,gamePlayersSchema,gameSchema,publicGameConfirmationSchema } from "@/lib/validators/games";
 
 export type GameActionState={ok:boolean;message?:string;fieldErrors?:Record<string,string[]|undefined>};
 const fail=(message:string):GameActionState=>({ok:false,message});
-const payload=(f:FormData)=>({title:f.get("title"),game_date:f.get("game_date"),start_time:f.get("start_time")??"",location:f.get("location")??"",player_price:f.get("player_price"),notes:f.get("notes")??"",status:f.get("status")??"scheduled"});
+const payload=(f:FormData)=>({title:f.get("title"),game_date:f.get("game_date"),start_time:f.get("start_time")??"",location:f.get("location")??"",player_price:f.get("player_price"),notes:f.get("notes")??"",status:f.get("status")??"scheduled",game_format:f.get("game_format")??"court"});
 export async function createGame(_:GameActionState,f:FormData):Promise<GameActionState>{const p=gameSchema.safeParse(payload(f));if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};let id:string|undefined;try{const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error}=await s.from("games").insert({...p.data,start_time:p.data.start_time||null,organization_id:o.id,created_by:(await s.auth.getUser()).data.user!.id}).select("id").single();if(error)return fail("Não foi possível criar o jogo.");id=data.id;}catch{return fail("Não foi possível criar o jogo.");}redirect(`/jogos/${id}`);}
 export async function updateGame(_:GameActionState,f:FormData):Promise<GameActionState>{const id=String(f.get("game_id")??"");const p=gameSchema.safeParse(payload(f));if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error}=await s.from("games").update({...p.data,start_time:p.data.start_time||null,updated_at:new Date().toISOString()}).eq("id",id).eq("organization_id",o.id).select("id").maybeSingle();if(error||!data)return fail("Não foi possível atualizar o jogo.");revalidatePath(`/jogos/${id}`);revalidatePath("/jogos");return{ok:true,message:"Jogo atualizado."};}
 export async function addPlayersToGame(_:GameActionState,f:FormData):Promise<GameActionState>{const game=String(f.get("game_id")??"");const p=gamePlayersSchema.safeParse({player_ids:f.getAll("player_ids")});if(!p.success)return fail("Selecione ao menos um jogador.");const o=await getCurrentOrganizationForUser();const s=await createClient();const[{data:g},{data:players}]=await Promise.all([s.from("games").select("id,player_price").eq("id",game).eq("organization_id",o.id).maybeSingle(),s.from("players").select("id,billing_type").eq("organization_id",o.id).eq("status","active").in("id",p.data.player_ids)]);if(!g||!players)return fail("Jogo ou jogadores inválidos.");const allowed=players.filter(x=>o.billing_mode!=="hybrid"||x.billing_type==="per_game");if(!allowed.length)return fail("Nenhum jogador elegível foi selecionado.");const{error}=await s.from("game_charges").upsert(allowed.map(x=>({organization_id:o.id,game_id:game,player_id:x.id,amount:g.player_price})),{onConflict:"game_id,player_id",ignoreDuplicates:true});if(error)return fail("Não foi possível adicionar os jogadores.");revalidatePath(`/jogos/${game}`);return{ok:true,message:"Jogadores adicionados."};}
@@ -90,6 +90,94 @@ export async function removeGameEvent(formData: FormData) {
     .eq("id", eventId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id);
+
+  revalidatePath(`/jogos/${gameId}`);
+}
+
+export async function confirmPublicGamePresence(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
+  const token = String(formData.get("token") ?? "");
+  const parsed = publicGameConfirmationSchema.safeParse({
+    name: formData.get("name"),
+    position: formData.get("position"),
+  });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: "Revise seu nome e a posição.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("confirm_public_game_presence", {
+    _token: token,
+    _name: parsed.data.name,
+    _position: parsed.data.position,
+  });
+
+  if (error) {
+    return fail("Não foi possível confirmar sua presença. Verifique se o convite ainda está ativo.");
+  }
+
+  return { ok: true, message: "Presença confirmada com sucesso!" };
+}
+
+export async function drawPublicGameTeams(formData: FormData) {
+  const gameId = String(formData.get("game_id") ?? "");
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const [{ data: game }, { data: confirmations }] = await Promise.all([
+    supabase
+      .from("games")
+      .select("id")
+      .eq("id", gameId)
+      .eq("organization_id", organization.id)
+      .maybeSingle(),
+    supabase
+      .from("game_guest_confirmations")
+      .select("id,position")
+      .eq("game_id", gameId)
+      .eq("organization_id", organization.id),
+  ]);
+
+  if (!game || !confirmations?.length) {
+    revalidatePath(`/jogos/${gameId}`);
+    return;
+  }
+
+  const groups = new Map<string, { id: string; position: string }[]>();
+  for (const player of confirmations) {
+    const list = groups.get(player.position) ?? [];
+    list.push(player);
+    groups.set(player.position, list);
+  }
+
+  const assignments: { id: string; team: number }[] = [];
+  let nextTeam = 1;
+
+  for (const group of groups.values()) {
+    const shuffled = [...group].sort(() => Math.random() - 0.5);
+    for (const player of shuffled) {
+      assignments.push({ id: player.id, team: nextTeam });
+      nextTeam = nextTeam === 1 ? 2 : 1;
+    }
+  }
+
+  await Promise.all(
+    assignments.map(({ id, team }) =>
+      supabase
+        .from("game_guest_confirmations")
+        .update({ team_number: team, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("organization_id", organization.id)
+        .eq("game_id", gameId)
+    )
+  );
 
   revalidatePath(`/jogos/${gameId}`);
 }
