@@ -19,7 +19,7 @@ export const gameSchema = z.object({
     .max(1000)
     .transform((value) => value || null),
   status: z.enum(["scheduled", "completed", "canceled"]),
-  game_format: z.enum(["court", "field"]),
+  game_format: z.enum(["court", "field"]).default("court"),
 });
 
 export const gameExpenseSchema = z.object({
