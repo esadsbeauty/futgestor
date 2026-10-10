@@ -1,4 +1,16 @@
 export type GameStatus = "scheduled" | "completed" | "canceled";
+export type GameFormat = "court" | "field";
+export type GuestPosition =
+  | "goalkeeper"
+  | "fixed"
+  | "winger"
+  | "pivot"
+  | "full_back"
+  | "center_back"
+  | "defensive_mid"
+  | "midfielder"
+  | "striker"
+  | "other";
 
 export type GameAttendanceStatus =
   | "pending"
@@ -15,6 +27,9 @@ export type Game = {
   player_price: number;
   notes: string | null;
   status: GameStatus;
+  game_format: GameFormat;
+  public_invite_token: string;
+  public_invite_active: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -89,4 +104,15 @@ export type GameEvent = {
   created_at: string;
   updated_at: string;
   playerName?: string;
+};
+
+export type GameGuestConfirmation = {
+  id: string;
+  organization_id: string;
+  game_id: string;
+  name: string;
+  position: GuestPosition;
+  team_number: number | null;
+  created_at: string;
+  updated_at: string;
 };
