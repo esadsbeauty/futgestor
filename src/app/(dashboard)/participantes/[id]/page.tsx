@@ -25,7 +25,7 @@ export default async function ParticipantDetailPage({ params }: { params: Promis
   return <div className="mx-auto max-w-5xl">
     <Link href="/participantes" className="focus-ring inline-flex items-center gap-2 rounded-lg text-sm text-[var(--muted)] hover:text-white"><ArrowLeft size={17}/>Voltar para participantes</Link>
     <ParticipantProfile organization={organization} participant={participant}/>
-    <PlayerAccessCard key={access?.id ?? "without-access"} playerId={participant.id} access={access}/>
+    <PlayerAccessCard key={participant.user_id ?? access?.id ?? "without-access"} playerId={participant.id} access={access} hasAccount={Boolean(participant.user_id)}/>
     <section className="card mt-5 flex flex-col gap-4 p-5 sm:flex-row sm:items-center"><div className="flex-1"><p className="text-sm text-[var(--muted)]">Situação do mês atual</p><div className="mt-2 flex flex-wrap items-center gap-3"><h2 className="text-lg font-bold">{formatMonthYear(referenceMonth)}</h2><StatusBadge status={currentStatus}/></div>{!currentFee && participant.status === "inactive" && <p className="mt-2 text-xs text-[var(--muted)]">Participantes inativos não recebem novas mensalidades.</p>}{currentStatus === "per_game" && <p className="mt-2 text-xs text-[var(--muted)]">Este participante não recebe mensalidade fixa.</p>}</div>{currentFee && currentStatus !== "paid" && currentStatus !== "per_game" && <PayFeeButton feeId={currentFee.id} participantId={participant.id}/>}</section>
     <ParticipantSummary summary={summary}/>
     <FeeHistory fees={fees} participantId={participant.id}/>
