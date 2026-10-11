@@ -38,19 +38,67 @@ export const gameEventSchema = z.object({
   quantity: z.coerce.number().int().min(1).max(20),
 });
 
-export const publicGameConfirmationSchema = z.object({
-  name: z.string().trim().min(2, "Informe seu nome.").max(100),
-  sport_type: z.enum(["futsal", "football"]),
-  position: z.enum([
-    "goalkeeper",
-    "fixed",
-    "winger",
-    "pivot",
-    "full_back",
-    "center_back",
-    "defensive_mid",
-    "midfielder",
-    "striker",
-    "other",
-  ]),
-});
+export const publicGameConfirmationSchema = z
+  .object({
+    name: z.string().trim().min(2, "Informe seu nome.").max(100),
+    attendance_status: z.enum(["confirmed", "declined"]),
+    sport_type: z.enum(["futsal", "football"]).nullable(),
+    position: z
+      .enum([
+        "goalkeeper",
+        "fixed",
+        "winger",
+        "pivot",
+        "full_back",
+        "center_back",
+        "defensive_mid",
+        "midfielder",
+        "striker",
+        "other",
+      ])
+      .nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.attendance_status === "declined") return;
+
+    if (!data.sport_type) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["sport_type"],
+        message: "Escolha o tipo de jogo.",
+      });
+      return;
+    }
+
+    if (!data.position) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["position"],
+        message: "Escolha sua posição.",
+      });
+      return;
+    }
+
+    const futsalPositions = ["goalkeeper", "fixed", "winger", "pivot", "other"];
+    const footballPositions = [
+      "goalkeeper",
+      "full_back",
+      "center_back",
+      "defensive_mid",
+      "midfielder",
+      "winger",
+      "striker",
+      "other",
+    ];
+
+    const allowed =
+      data.sport_type === "futsal" ? futsalPositions : footballPositions;
+
+    if (!allowed.includes(data.position)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["position"],
+        message: "Posição inválida para o tipo de jogo escolhido.",
+      });
+    }
+  });
