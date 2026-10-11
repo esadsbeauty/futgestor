@@ -101,8 +101,9 @@ export async function confirmPublicGamePresence(
   const token = String(formData.get("token") ?? "");
   const parsed = publicGameConfirmationSchema.safeParse({
     name: formData.get("name"),
-    sport_type: formData.get("sport_type"),
-    position: formData.get("position"),
+    attendance_status: formData.get("attendance_status"),
+    sport_type: formData.get("sport_type") || null,
+    position: formData.get("position") || null,
   });
 
   if (!parsed.success) {
@@ -117,6 +118,7 @@ export async function confirmPublicGamePresence(
   const { error } = await supabase.rpc("confirm_public_game_presence", {
     _token: token,
     _name: parsed.data.name,
+    _attendance_status: parsed.data.attendance_status,
     _sport_type: parsed.data.sport_type,
     _position: parsed.data.position,
   });
@@ -125,7 +127,14 @@ export async function confirmPublicGamePresence(
     return fail("Não foi possível confirmar sua presença. Verifique se o convite ainda está ativo.");
   }
 
-  return { ok: true, message: "Presença confirmada com sucesso!" };
+  revalidatePath(`/confirmar-jogo/${token}`);
+  return {
+    ok: true,
+    message:
+      parsed.data.attendance_status === "confirmed"
+        ? "Presença confirmada com sucesso!"
+        : "Resposta registrada. Você não vai participar deste jogo.",
+  };
 }
 
 export async function drawPublicGameTeams(formData: FormData) {
@@ -144,6 +153,7 @@ export async function drawPublicGameTeams(formData: FormData) {
       .from("game_guest_confirmations")
       .select("id,position,sport_type")
       .eq("game_id", gameId)
+      .eq("attendance_status", "confirmed")
       .eq("organization_id", organization.id),
   ]);
 
