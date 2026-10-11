@@ -33,6 +33,7 @@ import {
   getGameCharges,
   getGameEvents,
   getGameExpenses,
+  getGameGuestConfirmations,
 } from "@/lib/queries/games";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 
