@@ -34,10 +34,12 @@ export function PublicGameInviteCard({
 }) {
   const [copied, setCopied] = useState(false);
   const inviteUrl = `${appUrl || (typeof window !== "undefined" ? window.location.origin : "")}/confirmar-jogo/${game.public_invite_token}`;
-  const hasDraw = confirmations.some((player) => player.team_number);
-  const teamOne = confirmations.filter((player) => player.team_number === 1);
-  const teamTwo = confirmations.filter((player) => player.team_number === 2);
-  const waiting = confirmations.filter((player) => !player.team_number);
+  const confirmed = confirmations.filter((player) => player.attendance_status === "confirmed");
+  const declined = confirmations.filter((player) => player.attendance_status === "declined");
+  const hasDraw = confirmed.some((player) => player.team_number);
+  const teamOne = confirmed.filter((player) => player.team_number === 1);
+  const teamTwo = confirmed.filter((player) => player.team_number === 2);
+  const waiting = confirmed.filter((player) => !player.team_number);
 
   async function copyInvite() {
     await navigator.clipboard.writeText(inviteUrl);
@@ -50,7 +52,9 @@ export function PublicGameInviteCard({
       <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-2.5">
         <span className="min-w-0 truncate text-sm font-bold">{player.name}</span>
         <span className="shrink-0 text-right text-xs text-[var(--muted)]">
-          {sportTypeLabels[player.sport_type]} · {positionLabels[player.position]}
+          {player.sport_type && player.position
+            ? `${sportTypeLabels[player.sport_type]} · ${positionLabels[player.position]}`
+            : "Não vai"}
         </span>
       </div>
     );
@@ -87,14 +91,14 @@ export function PublicGameInviteCard({
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5">
           <div className="flex items-center gap-2 text-sm">
             <UsersRound size={17} className="text-[var(--brand)]"/>
-            <strong>{confirmations.length}</strong>
+            <strong>{confirmed.length}</strong>
             <span className="text-[var(--muted)]">confirmado(s)</span>
           </div>
 
           <form action={drawPublicGameTeams}>
             <input type="hidden" name="game_id" value={game.id}/>
             <button
-              disabled={confirmations.length < 2}
+              disabled={confirmed.length < 2}
               className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-[#01111d] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Shuffle size={17}/>
@@ -104,7 +108,7 @@ export function PublicGameInviteCard({
         </div>
       </div>
 
-      {confirmations.length === 0 ? (
+      {confirmed.length === 0 && declined.length === 0 ? (
         <div className="card mt-4 p-8 text-center text-sm text-[var(--muted)]">
           Ninguém confirmou presença por este link ainda.
         </div>
@@ -136,12 +140,29 @@ export function PublicGameInviteCard({
               </div>
             </div>
           ) : null}
+          {declined.length ? (
+            <div className="card p-4 md:col-span-2">
+              <h3 className="font-black">Não vão</h3>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {declined.map((player) => <PlayerRow key={player.id} player={player}/>)}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="card mt-4 p-4">
           <h3 className="font-black">Confirmados</h3>
           <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {confirmations.map((player) => <PlayerRow key={player.id} player={player}/>)}
+            {confirmed.map((player) => <PlayerRow key={player.id} player={player}/>)}
+          </div>
+          {declined.length ? (
+            <div className="mt-5 border-t border-[var(--border)] pt-4">
+              <h3 className="font-black">Não vão</h3>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {declined.map((player) => <PlayerRow key={player.id} player={player}/>)}
+              </div>
+            </div>
+          ) : null}
           </div>
         </div>
       )}
