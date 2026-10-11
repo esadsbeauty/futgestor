@@ -1,6 +1,7 @@
 export type GameStatus = "scheduled" | "completed" | "canceled";
 export type GameFormat = "court" | "field";
 export type GuestSportType = "futsal" | "football";
+export type GuestAttendanceStatus = "confirmed" | "declined";
 export type GuestPosition =
   | "goalkeeper"
   | "fixed"
@@ -112,9 +113,18 @@ export type GameGuestConfirmation = {
   organization_id: string;
   game_id: string;
   name: string;
-  sport_type: GuestSportType;
-  position: GuestPosition;
+  attendance_status: GuestAttendanceStatus;
+  sport_type: GuestSportType | null;
+  position: GuestPosition | null;
   team_number: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PublicGameInviteResponse = {
+  name: string;
+  attendance_status: GuestAttendanceStatus;
+  sport_type: GuestSportType | null;
+  position: GuestPosition | null;
+  created_at: string;
 };
