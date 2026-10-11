@@ -1,16 +1,16 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   confirmPublicGamePresence,
   type GameActionState,
 } from "@/lib/mutations/games";
-import type { GameFormat } from "@/types/games";
+import type { GuestSportType } from "@/types/games";
 
 const initialState: GameActionState = { ok: false };
 
-const courtPositions = [
+const futsalPositions = [
   ["goalkeeper", "Goleiro"],
   ["fixed", "Fixo"],
   ["winger", "Ala"],
@@ -18,7 +18,7 @@ const courtPositions = [
   ["other", "Outra"],
 ] as const;
 
-const fieldPositions = [
+const footballPositions = [
   ["goalkeeper", "Goleiro"],
   ["full_back", "Lateral"],
   ["center_back", "Zagueiro"],
@@ -31,15 +31,14 @@ const fieldPositions = [
 
 export function PublicGameConfirmationForm({
   token,
-  gameFormat,
 }: {
   token: string;
-  gameFormat: GameFormat;
 }) {
   const [state, action, pending] = useActionState(
     confirmPublicGamePresence,
     initialState
   );
+  const [sportType, setSportType] = useState<GuestSportType | "">("");
 
   if (state.ok) {
     return (
@@ -53,7 +52,12 @@ export function PublicGameConfirmationForm({
     );
   }
 
-  const positions = gameFormat === "court" ? courtPositions : fieldPositions;
+  const positions =
+    sportType === "futsal"
+      ? futsalPositions
+      : sportType === "football"
+        ? footballPositions
+        : [];
 
   return (
     <form action={action} className="space-y-5">
@@ -77,9 +81,40 @@ export function PublicGameConfirmationForm({
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium">Sua posição</span>
-        <select name="position" className="input" required defaultValue="">
+        <span className="text-sm font-medium">Tipo de jogo</span>
+        <select
+          name="sport_type"
+          className="input"
+          required
+          value={sportType}
+          onChange={(event) =>
+            setSportType(event.target.value as GuestSportType | "")
+          }
+        >
           <option value="" disabled>Selecione</option>
+          <option value="futsal">Futsal</option>
+          <option value="football">Futebol de campo</option>
+        </select>
+        {state.fieldErrors?.sport_type?.[0] ? (
+          <small className="mt-1 block text-[var(--danger)]">
+            {state.fieldErrors.sport_type[0]}
+          </small>
+        ) : null}
+      </label>
+
+      <label className="block">
+        <span className="text-sm font-medium">Sua posição</span>
+        <select
+          key={sportType}
+          name="position"
+          className="input"
+          required
+          defaultValue=""
+          disabled={!sportType}
+        >
+          <option value="" disabled>
+            {sportType ? "Selecione" : "Escolha primeiro o tipo de jogo"}
+          </option>
           {positions.map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
           ))}
