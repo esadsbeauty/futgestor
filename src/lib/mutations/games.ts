@@ -101,6 +101,7 @@ export async function confirmPublicGamePresence(
   const token = String(formData.get("token") ?? "");
   const parsed = publicGameConfirmationSchema.safeParse({
     name: formData.get("name"),
+    sport_type: formData.get("sport_type"),
     position: formData.get("position"),
   });
 
@@ -116,6 +117,7 @@ export async function confirmPublicGamePresence(
   const { error } = await supabase.rpc("confirm_public_game_presence", {
     _token: token,
     _name: parsed.data.name,
+    _sport_type: parsed.data.sport_type,
     _position: parsed.data.position,
   });
 
@@ -140,7 +142,7 @@ export async function drawPublicGameTeams(formData: FormData) {
       .maybeSingle(),
     supabase
       .from("game_guest_confirmations")
-      .select("id,position")
+      .select("id,position,sport_type")
       .eq("game_id", gameId)
       .eq("organization_id", organization.id),
   ]);
@@ -150,11 +152,12 @@ export async function drawPublicGameTeams(formData: FormData) {
     return;
   }
 
-  const groups = new Map<string, { id: string; position: string }[]>();
+  const groups = new Map<string, { id: string; position: string; sport_type: string }[]>();
   for (const player of confirmations) {
-    const list = groups.get(player.position) ?? [];
+    const key = `${player.sport_type}:${player.position}`;
+    const list = groups.get(key) ?? [];
     list.push(player);
-    groups.set(player.position, list);
+    groups.set(key, list);
   }
 
   const assignments: { id: string; team: number }[] = [];
