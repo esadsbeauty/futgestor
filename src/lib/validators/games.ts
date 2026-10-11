@@ -40,6 +40,7 @@ export const gameEventSchema = z.object({
 
 export const publicGameConfirmationSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome.").max(100),
+  sport_type: z.enum(["futsal", "football"]),
   position: z.enum([
     "goalkeeper",
     "fixed",
