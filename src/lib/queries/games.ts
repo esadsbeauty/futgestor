@@ -10,6 +10,7 @@ import type {
   GameExpense,
   GameEvent,
   GameGuestConfirmation,
+  PublicGameInviteResponse,
   GameWithSummary,
 } from "@/types/games";
 import type { Participant } from "@/types/participants";
@@ -327,4 +328,16 @@ export async function getPublicGameInvite(token: string) {
 
   if (error) return null;
   return data?.[0] ?? null;
+}
+
+export async function getPublicGameInviteResponses(
+  token: string
+): Promise<PublicGameInviteResponse[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_public_game_invite_responses", {
+    _token: token,
+  });
+
+  if (error) return [];
+  return (data ?? []) as PublicGameInviteResponse[];
 }
