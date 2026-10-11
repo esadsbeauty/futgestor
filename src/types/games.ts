@@ -1,5 +1,6 @@
 export type GameStatus = "scheduled" | "completed" | "canceled";
 export type GameFormat = "court" | "field";
+export type GuestSportType = "futsal" | "football";
 export type GuestPosition =
   | "goalkeeper"
   | "fixed"
@@ -111,6 +112,7 @@ export type GameGuestConfirmation = {
   organization_id: string;
   game_id: string;
   name: string;
+  sport_type: GuestSportType;
   position: GuestPosition;
   team_number: number | null;
   created_at: string;
