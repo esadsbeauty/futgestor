@@ -2,7 +2,6 @@ import { CalendarDays, Link2Off, MapPin } from "lucide-react";
 import { PublicGameConfirmationForm } from "@/components/futgestor/public-game-confirmation-form";
 import { formatDate } from "@/lib/formatters";
 import { getPublicGameInvite } from "@/lib/queries/games";
-import type { GameFormat } from "@/types/games";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +45,7 @@ export default async function PublicGameInvitePage({
         </div>
 
         <div className="mt-7">
-          <PublicGameConfirmationForm
-            token={token}
-            gameFormat={game.game_format as GameFormat}
-          />
+          <PublicGameConfirmationForm token={token} />
         </div>
       </section>
     </main>
