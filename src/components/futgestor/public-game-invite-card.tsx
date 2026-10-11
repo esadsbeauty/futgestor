@@ -163,7 +163,6 @@ export function PublicGameInviteCard({
               </div>
             </div>
           ) : null}
-          </div>
         </div>
       )}
     </section>
