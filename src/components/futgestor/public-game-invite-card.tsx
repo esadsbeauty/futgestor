@@ -5,6 +5,11 @@ import { useState } from "react";
 import { drawPublicGameTeams } from "@/lib/mutations/games";
 import type { Game, GameGuestConfirmation, GuestPosition } from "@/types/games";
 
+const sportTypeLabels = {
+  futsal: "Futsal",
+  football: "Futebol",
+} as const;
+
 const positionLabels: Record<GuestPosition, string> = {
   goalkeeper: "Goleiro",
   fixed: "Fixo",
@@ -44,7 +49,9 @@ export function PublicGameInviteCard({
     return (
       <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-2.5">
         <span className="min-w-0 truncate text-sm font-bold">{player.name}</span>
-        <span className="shrink-0 text-xs text-[var(--muted)]">{positionLabels[player.position]}</span>
+        <span className="shrink-0 text-right text-xs text-[var(--muted)]">
+          {sportTypeLabels[player.sport_type]} · {positionLabels[player.position]}
+        </span>
       </div>
     );
   }
