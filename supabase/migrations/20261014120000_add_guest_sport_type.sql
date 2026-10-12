@@ -107,7 +107,7 @@ returns table(
   name text,
   attendance_status text,
   sport_type text,
-  position text,
+  "position" text,
   created_at timestamptz
 )
 language sql
