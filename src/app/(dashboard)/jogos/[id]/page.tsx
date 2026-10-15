@@ -83,9 +83,15 @@ export default async function GamePage({
     getGameGuestConfirmations(o.id, id),
   ]);
 
+  const publicConfirmedExpected =
+    guestConfirmations.filter(
+      (player) => player.attendance_status === "confirmed"
+    ).length * Number(game.player_price);
+
   const summary = gameFinancialSummary(
     charges,
-    expenses
+    expenses,
+    publicConfirmedExpected
   );
 
   return (
