@@ -24,6 +24,7 @@ export async function listGames(
     { data: games, error },
     { data: charges },
     { data: expenses },
+    { data: guestConfirmations },
   ] = await Promise.all([
     s
       .from("games")
@@ -40,6 +41,12 @@ export async function listGames(
       .from("game_expenses")
       .select("*")
       .eq("organization_id", org),
+
+    s
+      .from("game_guest_confirmations")
+      .select("game_id,attendance_status")
+      .eq("organization_id", org)
+      .eq("attendance_status", "confirmed"),
   ]);
 
   if (error) {
@@ -56,7 +63,10 @@ export async function listGames(
       ),
       ((expenses ?? []) as GameExpense[]).filter(
         (x) => x.game_id === g.id
-      )
+      ),
+      (guestConfirmations ?? []).filter(
+        (x) => x.game_id === g.id
+      ).length * Number(g.player_price)
     ),
   }));
 }
