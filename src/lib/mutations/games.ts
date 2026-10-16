@@ -194,3 +194,99 @@ export async function drawPublicGameTeams(formData: FormData) {
 
   revalidatePath(`/jogos/${gameId}`);
 }
+
+
+export async function updatePublicGameConfirmation(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
+  const confirmationId = String(formData.get("confirmation_id") ?? "");
+  const gameId = String(formData.get("game_id") ?? "");
+
+  const parsed = publicGameConfirmationSchema.safeParse({
+    name: formData.get("name"),
+    attendance_status: formData.get("attendance_status"),
+    sport_type: formData.get("sport_type") || null,
+    position: formData.get("position") || null,
+  });
+
+  if (!confirmationId || !gameId || !parsed.success) {
+    return {
+      ok: false,
+      message: "Revise os dados do jogador.",
+      fieldErrors: parsed.success ? undefined : parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const { data: confirmation, error: lookupError } = await supabase
+    .from("game_guest_confirmations")
+    .select("id")
+    .eq("id", confirmationId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (lookupError || !confirmation) {
+    return fail("Jogador não encontrado neste jogo.");
+  }
+
+  const { error } = await supabase
+    .from("game_guest_confirmations")
+    .update({
+      name: parsed.data.name,
+      attendance_status: parsed.data.attendance_status,
+      sport_type:
+        parsed.data.attendance_status === "confirmed"
+          ? parsed.data.sport_type
+          : null,
+      position:
+        parsed.data.attendance_status === "confirmed"
+          ? parsed.data.position
+          : null,
+      team_number: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", confirmationId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id);
+
+  if (error) return fail("Não foi possível atualizar o jogador.");
+
+  await supabase
+    .from("game_guest_confirmations")
+    .update({ team_number: null, updated_at: new Date().toISOString() })
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id);
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/jogos");
+  return { ok: true, message: "Jogador atualizado." };
+}
+
+export async function removePublicGameConfirmation(formData: FormData) {
+  const confirmationId = String(formData.get("confirmation_id") ?? "");
+  const gameId = String(formData.get("game_id") ?? "");
+  if (!confirmationId || !gameId) return;
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  await supabase
+    .from("game_guest_confirmations")
+    .delete()
+    .eq("id", confirmationId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id);
+
+  await supabase
+    .from("game_guest_confirmations")
+    .update({ team_number: null, updated_at: new Date().toISOString() })
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id);
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/jogos");
+}
