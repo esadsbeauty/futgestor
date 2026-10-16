@@ -117,6 +117,7 @@ export type GameGuestConfirmation = {
   sport_type: GuestSportType | null;
   position: GuestPosition | null;
   team_number: number | null;
+  player_id: string | null;
   created_at: string;
   updated_at: string;
 };
