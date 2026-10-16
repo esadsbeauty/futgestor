@@ -3,7 +3,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { gameEventSchema,gameExpenseSchema,gamePlayersSchema,gameSchema,publicGameConfirmationSchema } from "@/lib/validators/games";
+import { effectivePlayerBillingType, shouldGenerateMonthlyFee } from "@/lib/billing";
+import { currentReferenceMonth } from "@/lib/queries/participants";
+import { z } from "zod";
 
 export type GameActionState={ok:boolean;message?:string;fieldErrors?:Record<string,string[]|undefined>};
 const fail=(message:string):GameActionState=>({ok:false,message});
@@ -289,4 +293,251 @@ export async function removePublicGameConfirmation(formData: FormData) {
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/jogos");
+}
+
+
+export type GuestPromotionActionState = {
+  ok: boolean;
+  message?: string;
+  temporaryPassword?: string;
+  participantId?: string;
+  email?: string;
+  fieldErrors?: Record<string, string[] | undefined>;
+};
+
+const promoteGuestSchema = z.object({
+  email: z.string().trim().email("Informe um e-mail válido."),
+  phone: z
+    .string()
+    .trim()
+    .max(30, "O WhatsApp é muito longo.")
+    .transform((value) => value || null),
+  billing_type: z.enum(["monthly", "per_game"]),
+});
+
+function generateTemporaryPassword() {
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+  return `Fut@${suffix}9A`;
+}
+
+export async function promoteGameGuestToParticipant(
+  _: GuestPromotionActionState,
+  formData: FormData
+): Promise<GuestPromotionActionState> {
+  const confirmationId = String(formData.get("confirmation_id") ?? "");
+  const gameId = String(formData.get("game_id") ?? "");
+
+  const parsed = promoteGuestSchema.safeParse({
+    email: formData.get("email"),
+    phone: formData.get("phone") ?? "",
+    billing_type: formData.get("billing_type") ?? "per_game",
+  });
+
+  if (!confirmationId || !gameId || !parsed.success) {
+    return {
+      ok: false,
+      message: "Revise os dados do participante.",
+      fieldErrors: parsed.success ? undefined : parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, message: "Sua sessão expirou." };
+  }
+
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", organization.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    return {
+      ok: false,
+      message: "Apenas proprietários e administradores podem criar acessos.",
+    };
+  }
+
+  const { data: guest, error: guestError } = await supabase
+    .from("game_guest_confirmations")
+    .select("id,name,attendance_status,player_id")
+    .eq("id", confirmationId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (guestError || !guest) {
+    return { ok: false, message: "Jogador não encontrado neste jogo." };
+  }
+
+  if (guest.player_id) {
+    return {
+      ok: false,
+      message: "Este jogador já foi transformado em participante.",
+      participantId: guest.player_id,
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: existingUsers, error: listUsersError } =
+    await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+
+  if (listUsersError) {
+    return {
+      ok: false,
+      message: "Não foi possível verificar o e-mail informado.",
+    };
+  }
+
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  const emailExists = existingUsers.users.some(
+    (existingUser) => existingUser.email?.toLowerCase() === normalizedEmail
+  );
+
+  if (emailExists) {
+    return {
+      ok: false,
+      message:
+        "Este e-mail já possui uma conta no FutGestor. Use outro e-mail neste primeiro momento.",
+    };
+  }
+
+  const billingType = effectivePlayerBillingType(
+    organization.billing_mode,
+    parsed.data.billing_type
+  );
+
+  const { data: participant, error: participantError } = await supabase
+    .from("players")
+    .insert({
+      organization_id: organization.id,
+      name: guest.name,
+      phone: parsed.data.phone,
+      monthly_fee: organization.default_monthly_fee,
+      due_day: organization.default_due_day,
+      joined_at: new Date().toISOString().slice(0, 10),
+      status: "active",
+      billing_type: billingType,
+      notes: "Criado a partir da confirmação pública de um jogo.",
+    })
+    .select("id")
+    .single();
+
+  if (participantError || !participant) {
+    return {
+      ok: false,
+      message: "Não foi possível criar o participante.",
+    };
+  }
+
+  const accessToken =
+    crypto.randomUUID() + crypto.randomUUID().replaceAll("-", "");
+
+  const { error: accessError } = await supabase
+    .from("player_access_tokens")
+    .insert({
+      organization_id: organization.id,
+      player_id: participant.id,
+      token: accessToken,
+    });
+
+  if (accessError) {
+    await supabase
+      .from("players")
+      .delete()
+      .eq("id", participant.id)
+      .eq("organization_id", organization.id);
+
+    return {
+      ok: false,
+      message: "Não foi possível preparar o acesso do participante.",
+    };
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+
+  const { data: createdUser, error: createUserError } =
+    await admin.auth.admin.createUser({
+      email: normalizedEmail,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: {
+        account_type: "player",
+        player_access_token: accessToken,
+        name: guest.name,
+        must_change_password: true,
+      },
+    });
+
+  if (createUserError || !createdUser.user) {
+    await supabase
+      .from("player_access_tokens")
+      .delete()
+      .eq("player_id", participant.id)
+      .eq("organization_id", organization.id);
+
+    await supabase
+      .from("players")
+      .delete()
+      .eq("id", participant.id)
+      .eq("organization_id", organization.id);
+
+    return {
+      ok: false,
+      message:
+        "Não foi possível criar a conta de acesso. Verifique o e-mail e tente novamente.",
+    };
+  }
+
+  const { error: linkError } = await supabase
+    .from("game_guest_confirmations")
+    .update({
+      player_id: participant.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", confirmationId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id);
+
+  if (linkError) {
+    return {
+      ok: false,
+      message:
+        "A conta foi criada, mas não foi possível vincular ao jogador do jogo. Verifique em Participantes.",
+      participantId: participant.id,
+      temporaryPassword,
+      email: normalizedEmail,
+    };
+  }
+
+  if (
+    guest.attendance_status === "confirmed" &&
+    shouldGenerateMonthlyFee(organization.billing_mode, billingType)
+  ) {
+    await supabase.rpc("ensure_month_fees", {
+      _org: organization.id,
+      _month: currentReferenceMonth(),
+    });
+  }
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/participantes");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    message:
+      "Participante criado. Copie a senha temporária agora; ela não será exibida novamente.",
+    temporaryPassword,
+    participantId: participant.id,
+    email: normalizedEmail,
+  };
 }
