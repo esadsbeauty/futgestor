@@ -2,20 +2,25 @@
 
 import {
   Clipboard,
+  Copy,
   Pencil,
   Save,
   Shuffle,
   Trash2,
+  UserPlus,
   UsersRound,
   X,
 } from "lucide-react";
 import { useActionState, useState } from "react";
 import {
   drawPublicGameTeams,
+  promoteGameGuestToParticipant,
   removePublicGameConfirmation,
   updatePublicGameConfirmation,
   type GameActionState,
+  type GuestPromotionActionState,
 } from "@/lib/mutations/games";
+import type { BillingMode } from "@/types/billing";
 import type {
   Game,
   GameGuestConfirmation,
@@ -24,6 +29,7 @@ import type {
 } from "@/types/games";
 
 const initialState: GameActionState = { ok: false };
+const promotionInitialState: GuestPromotionActionState = { ok: false };
 
 const sportTypeLabels = {
   futsal: "Futsal",
@@ -62,14 +68,163 @@ const footballPositions = [
   ["other", "Outra"],
 ] as const;
 
-function PlayerRow({
+function PromoteGuestForm({
   player,
   gameId,
+  billingMode,
+  onClose,
 }: {
   player: GameGuestConfirmation;
   gameId: string;
+  billingMode: BillingMode;
+  onClose: () => void;
+}) {
+  const [state, action, pending] = useActionState(
+    promoteGameGuestToParticipant,
+    promotionInitialState
+  );
+
+  const copyAccess = async () => {
+    if (!state.email || !state.temporaryPassword) return;
+    const loginUrl = `${window.location.origin}/login`;
+    await navigator.clipboard.writeText(
+      `Acesso ao FutGestor\nE-mail: ${state.email}\nSenha temporária: ${state.temporaryPassword}\nEntrar: ${loginUrl}\nNo primeiro acesso, crie uma nova senha.`
+    );
+  };
+
+  if (state.ok && state.temporaryPassword) {
+    return (
+      <div className="rounded-2xl border border-[var(--success)]/30 bg-[var(--success)]/5 p-4">
+        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--success)]">
+          Participante criado
+        </p>
+        <p className="mt-2 text-sm font-bold">{player.name}</p>
+        <div className="mt-3 rounded-xl border border-[var(--border)] bg-black/10 p-3 text-sm">
+          <p>
+            <span className="text-[var(--muted)]">E-mail:</span>{" "}
+            {state.email}
+          </p>
+          <p className="mt-1 break-all">
+            <span className="text-[var(--muted)]">Senha temporária:</span>{" "}
+            <strong>{state.temporaryPassword}</strong>
+          </p>
+        </div>
+        <p className="mt-3 text-xs text-[var(--muted)]">
+          Essa senha é exibida apenas agora. No primeiro login, o jogador será
+          obrigado a criar uma nova senha.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={copyAccess}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-xs font-bold text-[#01111d]"
+          >
+            <Copy size={15} />
+            Copiar acesso
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] px-3 text-xs font-bold"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      action={action}
+      className="rounded-2xl border border-[var(--brand)]/30 bg-[var(--brand)]/5 p-4"
+    >
+      <input type="hidden" name="confirmation_id" value={player.id} />
+      <input type="hidden" name="game_id" value={gameId} />
+
+      <p className="text-sm font-black">Transformar em participante</p>
+      <p className="mt-1 text-xs text-[var(--muted)]">
+        Crie o cadastro permanente e um acesso com senha temporária.
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="sm:col-span-2">
+          <span className="text-xs text-[var(--muted)]">E-mail</span>
+          <input
+            name="email"
+            type="email"
+            className="input"
+            required
+            placeholder="jogador@email.com"
+          />
+          {state.fieldErrors?.email?.[0] ? (
+            <small className="mt-1 block text-[var(--danger)]">
+              {state.fieldErrors.email[0]}
+            </small>
+          ) : null}
+        </label>
+
+        <label>
+          <span className="text-xs text-[var(--muted)]">WhatsApp</span>
+          <input
+            name="phone"
+            className="input"
+            placeholder="Opcional"
+          />
+        </label>
+
+        <label>
+          <span className="text-xs text-[var(--muted)]">Cobrança</span>
+          <select
+            name="billing_type"
+            className="input"
+            defaultValue={billingMode === "monthly" ? "monthly" : "per_game"}
+          >
+            {billingMode !== "per_game" ? (
+              <option value="monthly">Mensalista</option>
+            ) : null}
+            {billingMode !== "monthly" ? (
+              <option value="per_game">Por jogo</option>
+            ) : null}
+          </select>
+        </label>
+      </div>
+
+      {state.message ? (
+        <p className="mt-3 text-sm text-[var(--danger)]">{state.message}</p>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          disabled={pending}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-xs font-bold text-[#01111d] disabled:opacity-60"
+        >
+          <UserPlus size={15} />
+          {pending ? "Criando..." : "Criar participante e acesso"}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] px-3 text-xs font-bold"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PlayerRow({
+  player,
+  gameId,
+  billingMode,
+}: {
+  player: GameGuestConfirmation;
+  gameId: string;
+  billingMode: BillingMode;
 }) {
   const [editing, setEditing] = useState(false);
+  const [promoting, setPromoting] = useState(false);
   const [sportType, setSportType] = useState<GuestSportType | "">(
     player.sport_type ?? ""
   );
@@ -87,6 +242,17 @@ function PlayerRow({
       : sportType === "football"
         ? footballPositions
         : [];
+
+  if (promoting) {
+    return (
+      <PromoteGuestForm
+        player={player}
+        gameId={gameId}
+        billingMode={billingMode}
+        onClose={() => setPromoting(false)}
+      />
+    );
+  }
 
   if (editing) {
     return (
@@ -214,6 +380,21 @@ function PlayerRow({
         </span>
       </div>
 
+      {!player.player_id ? (
+        <button
+          type="button"
+          onClick={() => setPromoting(true)}
+          aria-label={`Transformar ${player.name} em participante`}
+          className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--success)]/30 text-[var(--success)]"
+        >
+          <UserPlus size={15} />
+        </button>
+      ) : (
+        <span className="shrink-0 rounded-full bg-[var(--success)]/10 px-2 py-1 text-[10px] font-bold text-[var(--success)]">
+          Participante
+        </span>
+      )}
+
       <button
         type="button"
         onClick={() => setEditing(true)}
@@ -241,10 +422,12 @@ export function PublicGameInviteCard({
   game,
   confirmations,
   appUrl,
+  billingMode,
 }: {
   game: Game;
   confirmations: GameGuestConfirmation[];
   appUrl: string;
+  billingMode: BillingMode;
 }) {
   const [copied, setCopied] = useState(false);
   const inviteUrl = `${
@@ -339,7 +522,7 @@ export function PublicGameInviteCard({
             </div>
             <div className="mt-4 space-y-2">
               {teamOne.map((player) => (
-                <PlayerRow key={player.id} player={player} gameId={game.id} />
+                <PlayerRow key={player.id} player={player} gameId={game.id} billingMode={billingMode} />
               ))}
             </div>
           </div>
@@ -353,7 +536,7 @@ export function PublicGameInviteCard({
             </div>
             <div className="mt-4 space-y-2">
               {teamTwo.map((player) => (
-                <PlayerRow key={player.id} player={player} gameId={game.id} />
+                <PlayerRow key={player.id} player={player} gameId={game.id} billingMode={billingMode} />
               ))}
             </div>
           </div>
@@ -367,6 +550,7 @@ export function PublicGameInviteCard({
                     key={player.id}
                     player={player}
                     gameId={game.id}
+                    billingMode={billingMode}
                   />
                 ))}
               </div>
@@ -382,6 +566,7 @@ export function PublicGameInviteCard({
                     key={player.id}
                     player={player}
                     gameId={game.id}
+                    billingMode={billingMode}
                   />
                 ))}
               </div>
@@ -393,7 +578,7 @@ export function PublicGameInviteCard({
           <h3 className="font-black">Confirmados</h3>
           <div className="mt-4 grid gap-2 md:grid-cols-2">
             {confirmed.map((player) => (
-              <PlayerRow key={player.id} player={player} gameId={game.id} />
+              <PlayerRow key={player.id} player={player} gameId={game.id} billingMode={billingMode} />
             ))}
           </div>
 
@@ -406,6 +591,7 @@ export function PublicGameInviteCard({
                     key={player.id}
                     player={player}
                     gameId={game.id}
+                    billingMode={billingMode}
                   />
                 ))}
               </div>
