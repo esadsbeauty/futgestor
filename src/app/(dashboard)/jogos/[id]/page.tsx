@@ -142,6 +142,7 @@ export default async function GamePage({
         game={game}
         confirmations={guestConfirmations}
         appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+        billingMode={o.billing_mode}
       />
 
       <section className="mt-10">
