@@ -45,6 +45,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   const isPlayer = user?.user_metadata?.account_type === "player";
+  const mustChangePassword = Boolean(
+    user?.user_metadata?.must_change_password
+  );
+
+  if (user && mustChangePassword && pathname !== "/nova-senha") {
+    return NextResponse.redirect(new URL("/nova-senha", request.url));
+  }
 
   if (user && isAuth) {
     return NextResponse.redirect(
