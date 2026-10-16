@@ -25,6 +25,10 @@ export async function login(
     return { error: "E-mail ou senha inválidos." };
   }
 
+  if (data.user.user_metadata?.must_change_password) {
+    redirect("/nova-senha");
+  }
+
   if (data.user.user_metadata?.account_type === "player") {
     redirect("/meu-grupo");
   }
@@ -109,10 +113,16 @@ export async function updateRecoveredPassword(
     return { error: "O link expirou. Solicite uma nova recuperação de senha." };
   }
 
-  const { error } = await supabase.auth.updateUser({ password });
+  const { error } = await supabase.auth.updateUser({
+    password,
+    data: {
+      ...user.user_metadata,
+      must_change_password: false,
+    },
+  });
 
   if (error) {
-    return { error: "Não foi possível alterar a senha. Solicite um novo link." };
+    return { error: "Não foi possível alterar a senha. Tente novamente." };
   }
 
   redirect(user.user_metadata?.account_type === "player" ? "/meu-grupo" : "/dashboard");
