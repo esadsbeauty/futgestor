@@ -1,9 +1,29 @@
 "use client";
 
-import { Clipboard, Shuffle, UsersRound } from "lucide-react";
-import { useState } from "react";
-import { drawPublicGameTeams } from "@/lib/mutations/games";
-import type { Game, GameGuestConfirmation, GuestPosition } from "@/types/games";
+import {
+  Clipboard,
+  Pencil,
+  Save,
+  Shuffle,
+  Trash2,
+  UsersRound,
+  X,
+} from "lucide-react";
+import { useActionState, useState } from "react";
+import {
+  drawPublicGameTeams,
+  removePublicGameConfirmation,
+  updatePublicGameConfirmation,
+  type GameActionState,
+} from "@/lib/mutations/games";
+import type {
+  Game,
+  GameGuestConfirmation,
+  GuestPosition,
+  GuestSportType,
+} from "@/types/games";
+
+const initialState: GameActionState = { ok: false };
 
 const sportTypeLabels = {
   futsal: "Futsal",
@@ -23,6 +43,200 @@ const positionLabels: Record<GuestPosition, string> = {
   other: "Outra",
 };
 
+const futsalPositions = [
+  ["goalkeeper", "Goleiro"],
+  ["fixed", "Fixo"],
+  ["winger", "Ala"],
+  ["pivot", "Pivô"],
+  ["other", "Outra"],
+] as const;
+
+const footballPositions = [
+  ["goalkeeper", "Goleiro"],
+  ["full_back", "Lateral"],
+  ["center_back", "Zagueiro"],
+  ["defensive_mid", "Volante"],
+  ["midfielder", "Meio-campo"],
+  ["winger", "Ponta"],
+  ["striker", "Atacante"],
+  ["other", "Outra"],
+] as const;
+
+function PlayerRow({
+  player,
+  gameId,
+}: {
+  player: GameGuestConfirmation;
+  gameId: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [sportType, setSportType] = useState<GuestSportType | "">(
+    player.sport_type ?? ""
+  );
+  const [attendanceStatus, setAttendanceStatus] = useState(
+    player.attendance_status
+  );
+  const [state, action, pending] = useActionState(
+    updatePublicGameConfirmation,
+    initialState
+  );
+
+  const positions =
+    sportType === "futsal"
+      ? futsalPositions
+      : sportType === "football"
+        ? footballPositions
+        : [];
+
+  if (editing) {
+    return (
+      <form
+        action={action}
+        className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"
+      >
+        <input type="hidden" name="confirmation_id" value={player.id} />
+        <input type="hidden" name="game_id" value={gameId} />
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="sm:col-span-2">
+            <span className="text-xs text-[var(--muted)]">Nome</span>
+            <input
+              name="name"
+              defaultValue={player.name}
+              className="input"
+              required
+            />
+          </label>
+
+          <label>
+            <span className="text-xs text-[var(--muted)]">Presença</span>
+            <select
+              name="attendance_status"
+              className="input"
+              value={attendanceStatus}
+              onChange={(event) => {
+                const value = event.target.value as "confirmed" | "declined";
+                setAttendanceStatus(value);
+                if (value === "declined") setSportType("");
+              }}
+            >
+              <option value="confirmed">Vai</option>
+              <option value="declined">Não vai</option>
+            </select>
+          </label>
+
+          {attendanceStatus === "confirmed" ? (
+            <label>
+              <span className="text-xs text-[var(--muted)]">Tipo de jogo</span>
+              <select
+                name="sport_type"
+                className="input"
+                value={sportType}
+                onChange={(event) =>
+                  setSportType(event.target.value as GuestSportType | "")
+                }
+                required
+              >
+                <option value="" disabled>
+                  Selecione
+                </option>
+                <option value="futsal">Futsal</option>
+                <option value="football">Futebol de campo</option>
+              </select>
+            </label>
+          ) : null}
+
+          {attendanceStatus === "confirmed" ? (
+            <label className="sm:col-span-2">
+              <span className="text-xs text-[var(--muted)]">Posição</span>
+              <select
+                key={sportType}
+                name="position"
+                className="input"
+                defaultValue={
+                  player.sport_type === sportType ? player.position ?? "" : ""
+                }
+                disabled={!sportType}
+                required
+              >
+                <option value="" disabled>
+                  {sportType ? "Selecione" : "Escolha o tipo de jogo"}
+                </option>
+                {positions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+
+        {state.message ? (
+          <p
+            className={`mt-3 text-sm ${
+              state.ok ? "text-[var(--success)]" : "text-[var(--danger)]"
+            }`}
+          >
+            {state.message}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            disabled={pending}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[var(--brand)] px-3 text-xs font-bold text-[#01111d] disabled:opacity-60"
+          >
+            <Save size={15} />
+            {pending ? "Salvando..." : "Salvar"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[var(--border)] px-3 text-xs font-bold"
+          >
+            <X size={15} />
+            Cancelar
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold">{player.name}</span>
+        <span className="mt-0.5 block text-xs text-[var(--muted)]">
+          {player.sport_type && player.position
+            ? `${sportTypeLabels[player.sport_type]} · ${positionLabels[player.position]}`
+            : "Não vai"}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        aria-label={`Editar ${player.name}`}
+        className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--border)] text-[var(--brand)]"
+      >
+        <Pencil size={15} />
+      </button>
+
+      <form action={removePublicGameConfirmation}>
+        <input type="hidden" name="confirmation_id" value={player.id} />
+        <input type="hidden" name="game_id" value={gameId} />
+        <button
+          aria-label={`Excluir ${player.name}`}
+          className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--danger)]/30 text-[var(--danger)]"
+        >
+          <Trash2 size={15} />
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export function PublicGameInviteCard({
   game,
   confirmations,
@@ -33,9 +247,17 @@ export function PublicGameInviteCard({
   appUrl: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const inviteUrl = `${appUrl || (typeof window !== "undefined" ? window.location.origin : "")}/confirmar-jogo/${game.public_invite_token}`;
-  const confirmed = confirmations.filter((player) => player.attendance_status === "confirmed");
-  const declined = confirmations.filter((player) => player.attendance_status === "declined");
+  const inviteUrl = `${
+    appUrl ||
+    (typeof window !== "undefined" ? window.location.origin : "")
+  }/confirmar-jogo/${game.public_invite_token}`;
+
+  const confirmed = confirmations.filter(
+    (player) => player.attendance_status === "confirmed"
+  );
+  const declined = confirmations.filter(
+    (player) => player.attendance_status === "declined"
+  );
   const hasDraw = confirmed.some((player) => player.team_number);
   const teamOne = confirmed.filter((player) => player.team_number === 1);
   const teamTwo = confirmed.filter((player) => player.team_number === 2);
@@ -47,26 +269,18 @@ export function PublicGameInviteCard({
     window.setTimeout(() => setCopied(false), 1800);
   }
 
-  function PlayerRow({ player }: { player: GameGuestConfirmation }) {
-    return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-2.5">
-        <span className="min-w-0 truncate text-sm font-bold">{player.name}</span>
-        <span className="shrink-0 text-right text-xs text-[var(--muted)]">
-          {player.sport_type && player.position
-            ? `${sportTypeLabels[player.sport_type]} · ${positionLabels[player.position]}`
-            : "Não vai"}
-        </span>
-      </div>
-    );
-  }
-
   return (
     <section className="mt-10">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[var(--brand)]">Convite público</p>
-        <h2 className="mt-2 text-xl font-black">Confirmação e sorteio dos times</h2>
+        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[var(--brand)]">
+          Convite público
+        </p>
+        <h2 className="mt-2 text-xl font-black">
+          Confirmação e sorteio dos times
+        </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Envie o link no grupo. A pessoa confirma nome e posição sem precisar criar conta.
+          Envie o link no grupo. Antes do sorteio, você pode corrigir, marcar
+          como não vai ou excluir qualquer jogador desta partida.
         </p>
       </div>
 
@@ -76,32 +290,34 @@ export function PublicGameInviteCard({
             <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--brand)]">
               Link do jogo
             </p>
-            <p className="mt-2 break-all text-sm text-[var(--muted)]">{inviteUrl}</p>
+            <p className="mt-2 break-all text-sm text-[var(--muted)]">
+              {inviteUrl}
+            </p>
           </div>
           <button
             type="button"
             onClick={copyInvite}
             className="focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-white/[.04] px-4 text-sm font-bold text-[var(--brand)]"
           >
-            <Clipboard size={16}/>
+            <Clipboard size={16} />
             {copied ? "Copiado!" : "Copiar link"}
           </button>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5">
           <div className="flex items-center gap-2 text-sm">
-            <UsersRound size={17} className="text-[var(--brand)]"/>
+            <UsersRound size={17} className="text-[var(--brand)]" />
             <strong>{confirmed.length}</strong>
             <span className="text-[var(--muted)]">confirmado(s)</span>
           </div>
 
           <form action={drawPublicGameTeams}>
-            <input type="hidden" name="game_id" value={game.id}/>
+            <input type="hidden" name="game_id" value={game.id} />
             <button
               disabled={confirmed.length < 2}
               className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-[#01111d] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Shuffle size={17}/>
+              <Shuffle size={17} />
               {hasDraw ? "Sortear novamente" : "Sortear 2 times"}
             </button>
           </form>
@@ -110,41 +326,64 @@ export function PublicGameInviteCard({
 
       {confirmed.length === 0 && declined.length === 0 ? (
         <div className="card mt-4 p-8 text-center text-sm text-[var(--muted)]">
-          Ninguém confirmou presença por este link ainda.
+          Ninguém respondeu por este link ainda.
         </div>
       ) : hasDraw ? (
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <h3 className="font-black">Time 1</h3>
-              <span className="text-xs text-[var(--muted)]">{teamOne.length} jogador(es)</span>
+              <span className="text-xs text-[var(--muted)]">
+                {teamOne.length} jogador(es)
+              </span>
             </div>
             <div className="mt-4 space-y-2">
-              {teamOne.map((player) => <PlayerRow key={player.id} player={player}/>)}
+              {teamOne.map((player) => (
+                <PlayerRow key={player.id} player={player} gameId={game.id} />
+              ))}
             </div>
           </div>
+
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <h3 className="font-black">Time 2</h3>
-              <span className="text-xs text-[var(--muted)]">{teamTwo.length} jogador(es)</span>
+              <span className="text-xs text-[var(--muted)]">
+                {teamTwo.length} jogador(es)
+              </span>
             </div>
             <div className="mt-4 space-y-2">
-              {teamTwo.map((player) => <PlayerRow key={player.id} player={player}/>)}
+              {teamTwo.map((player) => (
+                <PlayerRow key={player.id} player={player} gameId={game.id} />
+              ))}
             </div>
           </div>
+
           {waiting.length ? (
             <div className="card p-4 md:col-span-2">
               <h3 className="font-black">Ainda sem time</h3>
               <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {waiting.map((player) => <PlayerRow key={player.id} player={player}/>)}
+                {waiting.map((player) => (
+                  <PlayerRow
+                    key={player.id}
+                    player={player}
+                    gameId={game.id}
+                  />
+                ))}
               </div>
             </div>
           ) : null}
+
           {declined.length ? (
             <div className="card p-4 md:col-span-2">
               <h3 className="font-black">Não vão</h3>
               <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {declined.map((player) => <PlayerRow key={player.id} player={player}/>)}
+                {declined.map((player) => (
+                  <PlayerRow
+                    key={player.id}
+                    player={player}
+                    gameId={game.id}
+                  />
+                ))}
               </div>
             </div>
           ) : null}
@@ -153,13 +392,22 @@ export function PublicGameInviteCard({
         <div className="card mt-4 p-4">
           <h3 className="font-black">Confirmados</h3>
           <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {confirmed.map((player) => <PlayerRow key={player.id} player={player}/>)}
+            {confirmed.map((player) => (
+              <PlayerRow key={player.id} player={player} gameId={game.id} />
+            ))}
           </div>
+
           {declined.length ? (
             <div className="mt-5 border-t border-[var(--border)] pt-4">
               <h3 className="font-black">Não vão</h3>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {declined.map((player) => <PlayerRow key={player.id} player={player}/>)}
+                {declined.map((player) => (
+                  <PlayerRow
+                    key={player.id}
+                    player={player}
+                    gameId={game.id}
+                  />
+                ))}
               </div>
             </div>
           ) : null}
