@@ -20,3 +20,14 @@ export const passwordSettingsSchema = z.object({
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.").max(128, "A senha é muito longa."),
   passwordConfirmation: z.string(),
 }).refine((data) => data.password === data.passwordConfirmation, { message: "As senhas precisam ser iguais.", path: ["passwordConfirmation"] });
+
+
+const checkboxBoolean = z.union([z.literal("on"), z.literal("true"), z.literal("false"), z.null(), z.undefined()]).transform((value) => value === "on" || value === "true");
+
+export const financialTransparencySettingsSchema = z.object({
+  show_cash_balance: checkboxBoolean,
+  show_receivables: checkboxBoolean,
+  show_payables: checkboxBoolean,
+  show_pending_players: checkboxBoolean,
+  show_individual_values: checkboxBoolean,
+});

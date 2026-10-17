@@ -1,0 +1,2 @@
+-- Applied to production as migration 20261017164458.
+-- Adds participant-portal goal ranking and guest-aware recent game statistics.

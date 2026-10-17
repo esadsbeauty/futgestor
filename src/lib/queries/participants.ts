@@ -15,7 +15,7 @@ export async function getCurrentOrganizationForUser(): Promise<Organization> {
 
   const { data, error } = await supabase
     .from("organization_members")
-    .select("organization_id, organizations!inner(id,name,default_monthly_fee,default_due_day,billing_mode)")
+    .select("organization_id, organizations!inner(id,name,default_monthly_fee,default_due_day,billing_mode,show_cash_balance,show_receivables,show_payables,show_pending_players,show_individual_values)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)

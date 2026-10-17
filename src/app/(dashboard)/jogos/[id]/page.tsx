@@ -11,16 +11,20 @@ import {
   AddPlayersForm,
   EditGameForm,
   ExpenseForm,
+  GameEventForm,
 } from "@/components/futgestor/game-detail-actions";
 import { GameSummary } from "@/components/futgestor/game-summary";
+import { PublicGameInviteCard } from "@/components/futgestor/public-game-invite-card";
 import {
   formatCurrency,
   formatDate,
 } from "@/lib/formatters";
 import { gameFinancialSummary } from "@/lib/games";
+import { gameEventPlayers } from "@/lib/game-event-players";
 import {
   payGameCharge,
   payGameExpense,
+  removeGameEvent,
   removePendingGameCharge,
 } from "@/lib/mutations/games";
 import {
@@ -28,7 +32,9 @@ import {
   getGameAttendanceSummary,
   getGameById,
   getGameCharges,
+  getGameEvents,
   getGameExpenses,
+  getGameGuestConfirmations,
 } from "@/lib/queries/games";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 
@@ -63,6 +69,8 @@ export default async function GamePage({
     expenses,
     eligible,
     attendance,
+    events,
+    guestConfirmations,
   ] = await Promise.all([
     getGameCharges(o.id, id),
     getGameExpenses(o.id, id),
@@ -72,11 +80,27 @@ export default async function GamePage({
       id
     ),
     getGameAttendanceSummary(o.id, id),
+    getGameEvents(o.id, id),
+    getGameGuestConfirmations(o.id, id),
   ]);
+
+  const publicConfirmedExpected =
+    guestConfirmations.filter(
+      (player) => player.attendance_status === "confirmed"
+    ).length * Number(game.player_price);
+
+  const publicConfirmedReceived =
+    guestConfirmations.filter(
+      (player) =>
+        player.attendance_status === "confirmed" &&
+        player.payment_status === "paid"
+    ).length * Number(game.player_price);
 
   const summary = gameFinancialSummary(
     charges,
-    expenses
+    expenses,
+    publicConfirmedExpected,
+    publicConfirmedReceived
   );
 
   return (
@@ -122,6 +146,13 @@ export default async function GamePage({
       <div className="mt-5">
         <GameSummary summary={summary} />
       </div>
+
+      <PublicGameInviteCard
+        game={game}
+        confirmations={guestConfirmations}
+        appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+        billingMode={o.billing_mode}
+      />
 
       <section className="mt-10">
         <div>
@@ -228,6 +259,60 @@ export default async function GamePage({
           ) : (
             <p className="p-8 text-center text-[var(--muted)]">
               Nenhum participante ativo.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[var(--brand)]">
+            Destaques
+          </p>
+          <h2 className="mt-2 text-xl font-black">Gols e cartões</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Registre os principais acontecimentos do jogo.
+          </p>
+        </div>
+
+        <GameEventForm
+          game={id}
+          players={gameEventPlayers(attendance.players, guestConfirmations)}
+        />
+
+        <div className="card mt-4 divide-y divide-[var(--border)]">
+          {events.length ? (
+            events.map((event) => (
+              <article
+                key={event.id}
+                className="flex items-center gap-3 p-4"
+              >
+                <div className="flex-1">
+                  <p className="font-bold">{event.playerName}</p>
+                  <p className="text-xs text-[var(--muted)]">
+                    {event.event_type === "goal"
+                      ? `⚽ ${event.quantity} gol${event.quantity === 1 ? "" : "s"}`
+                      : event.event_type === "yellow_card"
+                        ? `🟨 ${event.quantity} cartão amarelo${event.quantity === 1 ? "" : "s"}`
+                        : `🟥 ${event.quantity} cartão vermelho${event.quantity === 1 ? "" : "s"}`}
+                  </p>
+                </div>
+
+                <form action={removeGameEvent}>
+                  <input type="hidden" name="event_id" value={event.id} />
+                  <input type="hidden" name="game_id" value={id} />
+                  <button
+                    aria-label="Remover destaque"
+                    className="p-2 text-[var(--danger)]"
+                  >
+                    <Trash2 size={17} />
+                  </button>
+                </form>
+              </article>
+            ))
+          ) : (
+            <p className="p-8 text-center text-[var(--muted)]">
+              Nenhum destaque registrado.
             </p>
           )}
         </div>
