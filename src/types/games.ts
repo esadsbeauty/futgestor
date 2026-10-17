@@ -118,6 +118,9 @@ export type GameGuestConfirmation = {
   position: GuestPosition | null;
   team_number: number | null;
   player_id: string | null;
+  payment_status: "pending" | "paid";
+  paid_at: string | null;
+  payment_transaction_id: string | null;
   created_at: string;
   updated_at: string;
 };

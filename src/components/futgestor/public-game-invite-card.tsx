@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  CheckCircle2,
+  CircleDollarSign,
   Clipboard,
   Copy,
   Pencil,
@@ -14,6 +16,7 @@ import {
 import { useActionState, useState } from "react";
 import {
   drawPublicGameTeams,
+  markPublicGameGuestPaid,
   promoteGameGuestToParticipant,
   removePublicGameConfirmation,
   updatePublicGameConfirmation,
@@ -370,7 +373,7 @@ function PlayerRow({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-2.5">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <span className="block truncate text-sm font-bold">{player.name}</span>
         <span className="mt-0.5 block text-xs text-[var(--muted)]">
@@ -379,6 +382,27 @@ function PlayerRow({
             : "Não vai"}
         </span>
       </div>
+
+      {player.attendance_status === "confirmed" ? (
+        player.payment_status === "paid" ? (
+          <span className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[var(--success)]/10 px-2.5 text-xs font-bold text-[var(--success)]">
+            <CheckCircle2 size={15} />
+            Pago
+          </span>
+        ) : (
+          <form action={markPublicGameGuestPaid}>
+            <input type="hidden" name="confirmation_id" value={player.id} />
+            <input type="hidden" name="game_id" value={gameId} />
+            <button
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-2.5 text-xs font-bold text-[var(--success)]"
+              title="Marcar pagamento deste jogo como recebido"
+            >
+              <CircleDollarSign size={15} />
+              Marcar pago
+            </button>
+          </form>
+        )
+      ) : null}
 
       {!player.player_id ? (
         <button
@@ -404,16 +428,18 @@ function PlayerRow({
         <Pencil size={15} />
       </button>
 
-      <form action={removePublicGameConfirmation}>
-        <input type="hidden" name="confirmation_id" value={player.id} />
-        <input type="hidden" name="game_id" value={gameId} />
-        <button
-          aria-label={`Excluir ${player.name}`}
-          className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--danger)]/30 text-[var(--danger)]"
-        >
-          <Trash2 size={15} />
-        </button>
-      </form>
+      {player.payment_status !== "paid" ? (
+        <form action={removePublicGameConfirmation}>
+          <input type="hidden" name="confirmation_id" value={player.id} />
+          <input type="hidden" name="game_id" value={gameId} />
+          <button
+            aria-label={`Excluir ${player.name}`}
+            className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--danger)]/30 text-[var(--danger)]"
+          >
+            <Trash2 size={15} />
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

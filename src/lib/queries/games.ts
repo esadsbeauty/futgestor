@@ -44,7 +44,7 @@ export async function listGames(
 
     s
       .from("game_guest_confirmations")
-      .select("game_id,attendance_status")
+      .select("game_id,attendance_status,payment_status")
       .eq("organization_id", org)
       .eq("attendance_status", "confirmed"),
   ]);
@@ -66,6 +66,9 @@ export async function listGames(
       ),
       (guestConfirmations ?? []).filter(
         (x) => x.game_id === g.id
+      ).length * Number(g.player_price),
+      (guestConfirmations ?? []).filter(
+        (x) => x.game_id === g.id && x.payment_status === "paid"
       ).length * Number(g.player_price)
     ),
   }));

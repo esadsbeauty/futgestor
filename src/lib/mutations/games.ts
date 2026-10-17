@@ -278,6 +278,16 @@ export async function removePublicGameConfirmation(formData: FormData) {
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
+  const { data: confirmation } = await supabase
+    .from("game_guest_confirmations")
+    .select("id,payment_status")
+    .eq("id", confirmationId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (!confirmation || confirmation.payment_status === "paid") return;
+
   await supabase
     .from("game_guest_confirmations")
     .delete()
@@ -540,4 +550,37 @@ export async function promoteGameGuestToParticipant(
     participantId: participant.id,
     email: normalizedEmail,
   };
+}
+
+
+export async function markPublicGameGuestPaid(formData: FormData) {
+  const confirmationId = String(formData.get("confirmation_id") ?? "");
+  const gameId = String(formData.get("game_id") ?? "");
+
+  if (!confirmationId || !gameId) return;
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const { data: confirmation } = await supabase
+    .from("game_guest_confirmations")
+    .select("id")
+    .eq("id", confirmationId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id)
+    .eq("attendance_status", "confirmed")
+    .maybeSingle();
+
+  if (!confirmation) return;
+
+  const { error } = await supabase.rpc("mark_game_guest_paid", {
+    _confirmation: confirmation.id,
+  });
+
+  if (error) return;
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/jogos");
+  revalidatePath("/financeiro");
+  revalidatePath("/dashboard");
 }

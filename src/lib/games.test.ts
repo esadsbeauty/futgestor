@@ -20,3 +20,23 @@ it("includes public confirmed players in expected revenue", () => {
     expectedResult: 0,
   });
 });
+
+
+it("includes public paid players in received and open totals", () => {
+  expect(
+    gameFinancialSummary(
+      [],
+      [{ amount: 100, status: "paid" }],
+      130,
+      80
+    )
+  ).toEqual({
+    expected: 130,
+    received: 80,
+    open: 50,
+    totalExpenses: 100,
+    paidExpenses: 100,
+    receivedResult: -20,
+    expectedResult: 30,
+  });
+});
