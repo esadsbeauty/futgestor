@@ -28,6 +28,7 @@ export type PlayerAccountGame = {
   player_price: number;
   status: string;
   attendance_status: GameAttendanceStatus;
+  attendance_locked: boolean;
 };
 
 export type PlayerAccountFinance = {
