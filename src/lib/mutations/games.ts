@@ -26,8 +26,11 @@ export async function createGameEvent(
   formData: FormData
 ): Promise<GameActionState> {
   const gameId = String(formData.get("game_id") ?? "");
+  const selection = String(formData.get("player_id") ?? "");
+  const guestId = selection.startsWith("guest:") ? selection.slice(6) : null;
   const parsed = gameEventSchema.safeParse({
-    player_id: formData.get("player_id"),
+    player_id: guestId ? null : selection,
+    guest_confirmation_id: guestId,
     event_type: formData.get("event_type"),
     quantity: formData.get("quantity"),
   });
@@ -54,12 +57,13 @@ export async function createGameEvent(
       .eq("id", gameId)
       .eq("organization_id", organization.id)
       .maybeSingle(),
-    supabase
-      .from("players")
-      .select("id")
-      .eq("id", parsed.data.player_id)
-      .eq("organization_id", organization.id)
-      .maybeSingle(),
+    guestId
+      ? supabase.from("game_guest_confirmations").select("id")
+          .eq("id", guestId).eq("game_id", gameId)
+          .eq("organization_id", organization.id).eq("attendance_status", "confirmed").maybeSingle()
+      : supabase.from("players").select("id")
+          .eq("id", parsed.data.player_id!)
+          .eq("organization_id", organization.id).maybeSingle(),
     supabase.auth.getUser(),
   ]);
 
@@ -70,7 +74,8 @@ export async function createGameEvent(
   const { error } = await supabase.from("game_events").insert({
     organization_id: organization.id,
     game_id: gameId,
-    player_id: player.id,
+    player_id: guestId ? null : player.id,
+    guest_confirmation_id: guestId ? player.id : null,
     event_type: parsed.data.event_type,
     quantity: parsed.data.quantity,
     created_by: user.id,

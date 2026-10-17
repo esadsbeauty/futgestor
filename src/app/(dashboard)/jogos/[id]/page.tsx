@@ -20,6 +20,7 @@ import {
   formatDate,
 } from "@/lib/formatters";
 import { gameFinancialSummary } from "@/lib/games";
+import { gameEventPlayers } from "@/lib/game-event-players";
 import {
   payGameCharge,
   payGameExpense,
@@ -276,10 +277,7 @@ export default async function GamePage({
 
         <GameEventForm
           game={id}
-          players={attendance.players.map((player) => ({
-            id: player.player_id,
-            name: player.player_name,
-          }))}
+          players={gameEventPlayers(attendance.players, guestConfirmations)}
         />
 
         <div className="card mt-4 divide-y divide-[var(--border)]">

@@ -99,7 +99,8 @@ export type GameEvent = {
   id: string;
   organization_id: string;
   game_id: string;
-  player_id: string;
+  player_id: string | null;
+  guest_confirmation_id: string | null;
   event_type: GameEventType;
   quantity: number;
   created_by: string;

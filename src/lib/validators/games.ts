@@ -33,9 +33,13 @@ export const gamePlayersSchema = z.object({
 });
 
 export const gameEventSchema = z.object({
-  player_id: z.string().uuid("Participante inválido."),
+  player_id: z.string().uuid("Participante inválido.").nullish(),
+  guest_confirmation_id: z.string().uuid("Jogador inválido.").nullish(),
   event_type: z.enum(["goal", "yellow_card", "red_card"]),
   quantity: z.coerce.number().int().min(1).max(20),
+}).refine((data) => Boolean(data.player_id) !== Boolean(data.guest_confirmation_id), {
+  message: "Selecione um participante ou jogador do jogo.",
+  path: ["player_id"],
 });
 
 export const publicGameConfirmationSchema = z

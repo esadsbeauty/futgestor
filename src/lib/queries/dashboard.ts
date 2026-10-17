@@ -8,15 +8,25 @@ async function getGoalRanking(organizationId: string): Promise<GoalRankingEntry[
   const supabase = await createClient();
   const { data: events, error: eventsError } = await supabase
     .from("game_events")
-    .select("player_id, quantity")
+    .select("player_id, guest_confirmation_id, quantity")
     .eq("organization_id", organizationId)
     .eq("event_type", "goal");
 
   if (eventsError) throw new Error("Não foi possível carregar o ranking de gols.");
 
+  const { data: guests, error: guestsError } = await supabase
+    .from("game_guest_confirmations").select("id,name,player_id")
+    .eq("organization_id", organizationId);
+  if (guestsError) throw new Error("Não foi possível carregar os jogadores dos jogos.");
+  const guestMap = new Map((guests ?? []).map((guest) => [guest.id, guest]));
+  const guestNames = new Map<string, string>();
   const totals = new Map<string, number>();
   for (const event of events ?? []) {
-    totals.set(event.player_id, (totals.get(event.player_id) ?? 0) + Number(event.quantity ?? 0));
+    const guest = guestMap.get(event.guest_confirmation_id);
+    const id = event.player_id ?? guest?.player_id ?? (guest ? `guest:${guest.id}` : null);
+    if (!id) continue;
+    if (guest && !guest.player_id) guestNames.set(id, guest.name);
+    totals.set(id, (totals.get(id) ?? 0) + Number(event.quantity ?? 0));
   }
 
   const playerIds = [...totals.keys()];
@@ -26,11 +36,11 @@ async function getGoalRanking(organizationId: string): Promise<GoalRankingEntry[
     .from("players")
     .select("id, name")
     .eq("organization_id", organizationId)
-    .in("id", playerIds);
+    .in("id", playerIds.filter((id) => !id.startsWith("guest:")));
 
   if (playersError) throw new Error("Não foi possível carregar os artilheiros.");
 
-  return (players ?? [])
+  return [...(players ?? []), ...[...guestNames].map(([id, name]) => ({ id, name }))]
     .map((player) => ({
       playerId: player.id,
       playerName: player.name,

@@ -289,6 +289,7 @@ export async function getGameEvents(
   const [
     { data: events, error: eventsError },
     { data: players, error: playersError },
+    { data: guests, error: guestsError },
   ] = await Promise.all([
     supabase
       .from("game_events")
@@ -300,17 +301,20 @@ export async function getGameEvents(
       .from("players")
       .select("id,name")
       .eq("organization_id", org),
+    supabase.from("game_guest_confirmations").select("id,name")
+      .eq("organization_id", org).eq("game_id", game),
   ]);
 
-  if (eventsError || playersError) {
+  if (eventsError || playersError || guestsError) {
     throw new Error("Não foi possível carregar os destaques do jogo.");
   }
 
   const names = new Map((players ?? []).map((player) => [player.id, player.name]));
+  const guestNames = new Map((guests ?? []).map((guest) => [guest.id, guest.name]));
 
   return ((events ?? []) as GameEvent[]).map((event) => ({
     ...event,
-    playerName: names.get(event.player_id) ?? "Participante",
+    playerName: (event.player_id ? names.get(event.player_id) : guestNames.get(event.guest_confirmation_id)) ?? "Jogador",
   }));
 }
 

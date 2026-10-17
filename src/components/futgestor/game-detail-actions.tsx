@@ -14,7 +14,7 @@ export function GameEventForm({
   players,
 }: {
   game: string;
-  players: { id: string; name: string }[];
+  players: { id: string; name: string; guest: boolean }[];
 }) {
   const [state, action, pending] = useActionState(createGameEvent, initial);
 
@@ -23,14 +23,14 @@ export function GameEventForm({
       <input type="hidden" name="game_id" value={game} />
 
       <label className="sm:col-span-2">
-        <span>Participante</span>
+        <span>Participante ou jogador do jogo</span>
         <select name="player_id" className="input" required defaultValue="">
           <option value="" disabled>
             Selecione
           </option>
           {players.map((player) => (
             <option key={player.id} value={player.id}>
-              {player.name}
+              {player.name}{player.guest ? " — jogador do jogo" : ""}
             </option>
           ))}
         </select>
