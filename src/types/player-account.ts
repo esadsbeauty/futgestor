@@ -56,6 +56,25 @@ export type PlayerGoalRankingEntry = {
   goals: number;
 };
 
+export type PlayerGameHistoryEntry = {
+  game_id: string;
+  title: string;
+  game_date: string;
+  start_time: string | null;
+  location: string | null;
+  player_price: number;
+  status: string;
+};
+
+export type PlayerGamePaymentEntry = {
+  game_id: string;
+  game_title: string;
+  game_date: string;
+  player_name: string;
+  payment_status: "pending" | "paid";
+  amount: number;
+};
+
 export type PlayerAccountData = {
   portal: PlayerAccountPortal;
   games: PlayerAccountGame[];
@@ -63,4 +82,6 @@ export type PlayerAccountData = {
   pendingPlayers: PlayerPendingAmount[];
   recentEvents: PlayerRecentGameEvent[];
   goalRanking: PlayerGoalRankingEntry[];
+  gameHistory: PlayerGameHistoryEntry[];
+  gamePayments: PlayerGamePaymentEntry[];
 };
