@@ -122,7 +122,7 @@ function GameCard({ game, featured = false }: { game: PlayerAccountGame; feature
 }
 
 export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
-  const { portal, games, finance, pendingPlayers, recentEvents } = data;
+  const { portal, games, finance, pendingPlayers, recentEvents, goalRanking } = data;
 
   const recentGame = recentEvents[0]
     ? {
@@ -248,6 +248,55 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
             )}
           </div>
         ) : null}
+      </section>
+
+      <section className="mt-10">
+        <div className="flex items-center gap-3">
+          <Trophy className="text-[var(--warning)]" />
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[var(--brand)]">
+              Artilharia
+            </p>
+            <h2 className="text-xl font-black">Ranking de gols</h2>
+          </div>
+        </div>
+
+        <div className="card mt-4 overflow-hidden">
+          {goalRanking.length ? (
+            <div className="divide-y divide-[var(--border)]">
+              {goalRanking.map((player, index) => (
+                <div
+                  key={player.player_key}
+                  className="flex items-center gap-3 p-4"
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/[.04] text-sm font-black text-[var(--muted)]">
+                    {index === 0 ? "👑" : `${index + 1}º`}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">{player.player_name}</p>
+                    <p className="mt-0.5 text-xs text-[var(--muted)]">
+                      {player.player_key.startsWith("guest:")
+                        ? "Jogador do jogo / convidado"
+                        : "Participante"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <strong className="text-xl font-black text-[var(--brand)]">
+                      {player.goals}
+                    </strong>
+                    <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">
+                      {player.goals === 1 ? "gol" : "gols"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="p-6 text-sm text-[var(--muted)]">
+              Ainda não há gols registrados.
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="mt-10">
