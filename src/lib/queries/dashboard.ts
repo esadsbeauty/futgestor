@@ -1,5 +1,5 @@
 import { effectiveBillStatus } from "@/lib/finance";
-import { getCurrentBalanceTransactions, getFinancialOverview, getMonthlyFees, getMonthlyTransactions } from "@/lib/queries/finance";
+import { getCurrentBalanceTransactions, getFinancialOverview, getMonthlyFees, getMonthlyGameFinancialOverview, getMonthlyTransactions } from "@/lib/queries/finance";
 import { createClient } from "@/lib/supabase/server";
 import type { DashboardSnapshot, GoalRankingEntry } from "@/types/dashboard";
 import type { Bill, BillWithStatus, Transaction, TransactionWithOrigin } from "@/types/finance";
@@ -79,12 +79,19 @@ async function getDashboardContext(organizationId: string) {
 }
 
 export async function getDashboardSnapshot(organizationId: string, referenceMonth: string): Promise<DashboardSnapshot> {
-  const [context, fees, monthTransactions, allTransactions, goalRanking] = await Promise.all([
+  const [context, fees, monthTransactions, allTransactions, goalRanking, gameOverview] = await Promise.all([
     getDashboardContext(organizationId),
     getMonthlyFees(organizationId, referenceMonth),
     getMonthlyTransactions(organizationId, referenceMonth),
     getCurrentBalanceTransactions(organizationId),
     getGoalRanking(organizationId),
+    getMonthlyGameFinancialOverview(organizationId, referenceMonth),
   ]);
-  return { ...context, fees, overview: getFinancialOverview(allTransactions, monthTransactions, fees), goalRanking };
+  return {
+    ...context,
+    fees,
+    overview: getFinancialOverview(allTransactions, monthTransactions, fees),
+    goalRanking,
+    gameOverview,
+  };
 }
