@@ -279,19 +279,28 @@ function PlayerRow({
 
           <label>
             <span className="text-xs text-[var(--muted)]">Presença</span>
-            <select
-              name="attendance_status"
-              className="input"
-              value={attendanceStatus}
-              onChange={(event) => {
-                const value = event.target.value as "confirmed" | "declined";
-                setAttendanceStatus(value);
-                if (value === "declined") setSportType("");
-              }}
-            >
-              <option value="confirmed">Vai</option>
-              <option value="declined">Não vai</option>
-            </select>
+            {player.payment_status === "paid" ? (
+              <>
+                <input type="hidden" name="attendance_status" value="confirmed" />
+                <div className="input flex items-center text-sm text-[var(--success)]">
+                  Confirmado · pagamento registrado
+                </div>
+              </>
+            ) : (
+              <select
+                name="attendance_status"
+                className="input"
+                value={attendanceStatus}
+                onChange={(event) => {
+                  const value = event.target.value as "confirmed" | "declined";
+                  setAttendanceStatus(value);
+                  if (value === "declined") setSportType("");
+                }}
+              >
+                <option value="confirmed">Vai</option>
+                <option value="declined">Não vai</option>
+              </select>
+            )}
           </label>
 
           {attendanceStatus === "confirmed" ? (

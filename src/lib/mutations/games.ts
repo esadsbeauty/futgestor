@@ -227,7 +227,7 @@ export async function updatePublicGameConfirmation(
 
   const { data: confirmation, error: lookupError } = await supabase
     .from("game_guest_confirmations")
-    .select("id")
+    .select("id,payment_status")
     .eq("id", confirmationId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id)
@@ -235,6 +235,15 @@ export async function updatePublicGameConfirmation(
 
   if (lookupError || !confirmation) {
     return fail("Jogador não encontrado neste jogo.");
+  }
+
+  if (
+    confirmation.payment_status === "paid" &&
+    parsed.data.attendance_status === "declined"
+  ) {
+    return fail(
+      "Este jogador já possui pagamento registrado. O pagamento precisa ser tratado antes de marcar como não vai."
+    );
   }
 
   const { error } = await supabase
