@@ -382,73 +382,85 @@ function PlayerRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold">{player.name}</span>
-        <span className="mt-0.5 block text-xs text-[var(--muted)]">
-          {player.sport_type && player.position
-            ? `${sportTypeLabels[player.sport_type]} · ${positionLabels[player.position]}`
-            : "Não vai"}
-        </span>
-      </div>
+    <div className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <span className="block break-words text-sm font-bold leading-tight">
+            {player.name}
+          </span>
+          <span className="mt-1 block text-xs leading-snug text-[var(--muted)]">
+            {player.sport_type && player.position
+              ? `${sportTypeLabels[player.sport_type]} · ${positionLabels[player.position]}`
+              : "Não vai"}
+          </span>
+        </div>
 
-      {player.attendance_status === "confirmed" ? (
-        player.payment_status === "paid" ? (
-          <span className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[var(--success)]/10 px-2.5 text-xs font-bold text-[var(--success)]">
-            <CheckCircle2 size={15} />
+        {player.payment_status === "paid" ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--success)]/10 px-2 py-1 text-[10px] font-bold text-[var(--success)]">
+            <CheckCircle2 size={13} />
             Pago
           </span>
-        ) : (
-          <form action={markPublicGameGuestPaid}>
+        ) : player.player_id ? (
+          <span className="shrink-0 rounded-full bg-[var(--success)]/10 px-2 py-1 text-[10px] font-bold text-[var(--success)]">
+            Participante
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        {player.attendance_status === "confirmed" &&
+        player.payment_status !== "paid" ? (
+          <form action={markPublicGameGuestPaid} className="min-w-0 flex-1">
             <input type="hidden" name="confirmation_id" value={player.id} />
             <input type="hidden" name="game_id" value={gameId} />
             <button
-              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-2.5 text-xs font-bold text-[var(--success)]"
+              className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-3 text-xs font-bold text-[var(--success)]"
               title="Marcar pagamento deste jogo como recebido"
             >
               <CircleDollarSign size={15} />
               Marcar pago
             </button>
           </form>
-        )
-      ) : null}
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
 
-      {!player.player_id ? (
+        {!player.player_id ? (
+          <button
+            type="button"
+            onClick={() => setPromoting(true)}
+            aria-label={`Transformar ${player.name} em participante`}
+            title="Transformar em participante"
+            className="grid size-10 shrink-0 place-items-center rounded-xl border border-[var(--success)]/30 text-[var(--success)]"
+          >
+            <UserPlus size={16} />
+          </button>
+        ) : null}
+
         <button
           type="button"
-          onClick={() => setPromoting(true)}
-          aria-label={`Transformar ${player.name} em participante`}
-          className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--success)]/30 text-[var(--success)]"
+          onClick={() => setEditing(true)}
+          aria-label={`Editar ${player.name}`}
+          title="Editar jogador"
+          className="grid size-10 shrink-0 place-items-center rounded-xl border border-[var(--border)] text-[var(--brand)]"
         >
-          <UserPlus size={15} />
+          <Pencil size={16} />
         </button>
-      ) : (
-        <span className="shrink-0 rounded-full bg-[var(--success)]/10 px-2 py-1 text-[10px] font-bold text-[var(--success)]">
-          Participante
-        </span>
-      )}
 
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        aria-label={`Editar ${player.name}`}
-        className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--border)] text-[var(--brand)]"
-      >
-        <Pencil size={15} />
-      </button>
-
-      {player.payment_status !== "paid" ? (
-        <form action={removePublicGameConfirmation}>
-          <input type="hidden" name="confirmation_id" value={player.id} />
-          <input type="hidden" name="game_id" value={gameId} />
-          <button
-            aria-label={`Excluir ${player.name}`}
-            className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--danger)]/30 text-[var(--danger)]"
-          >
-            <Trash2 size={15} />
-          </button>
-        </form>
-      ) : null}
+        {player.payment_status !== "paid" ? (
+          <form action={removePublicGameConfirmation}>
+            <input type="hidden" name="confirmation_id" value={player.id} />
+            <input type="hidden" name="game_id" value={gameId} />
+            <button
+              aria-label={`Excluir ${player.name}`}
+              title="Excluir jogador"
+              className="grid size-10 shrink-0 place-items-center rounded-xl border border-[var(--danger)]/30 text-[var(--danger)]"
+            >
+              <Trash2 size={16} />
+            </button>
+          </form>
+        ) : null}
+      </div>
     </div>
   );
 }
