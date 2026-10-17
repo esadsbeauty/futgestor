@@ -1,6 +1,6 @@
 import { effectiveBillStatus, effectiveFeeStatus, monthlyFinancialOverview } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/server";
-import type { Bill, BillWithStatus, FeeWithPlayer, FinancialOverview, Transaction, TransactionWithOrigin } from "@/types/finance";
+import type { Bill, BillWithStatus, FeeWithPlayer, FinancialOverview, GameFinancialOverview, Transaction, TransactionWithOrigin } from "@/types/finance";
 import type { MonthlyFee } from "@/types/participants";
 
 export function monthBounds(referenceMonth: string) {
@@ -57,4 +57,105 @@ export async function getCurrentBalanceTransactions(organizationId: string): Pro
 
 export function getFinancialOverview(allTransactions: Transaction[], monthTransactions: Transaction[], monthFees: MonthlyFee[]): FinancialOverview {
   return monthlyFinancialOverview(allTransactions, monthTransactions, monthFees);
+}
+
+
+export async function getMonthlyGameFinancialOverview(
+  organizationId: string,
+  referenceMonth: string
+): Promise<GameFinancialOverview> {
+  const { start, next } = monthBounds(referenceMonth);
+  const supabase = await createClient();
+
+  const [
+    { data: games, error: gamesError },
+    { data: charges, error: chargesError },
+    { data: expenses, error: expensesError },
+    { data: guests, error: guestsError },
+  ] = await Promise.all([
+    supabase
+      .from("games")
+      .select("id,player_price")
+      .eq("organization_id", organizationId)
+      .gte("game_date", start)
+      .lt("game_date", next)
+      .neq("status", "canceled"),
+    supabase
+      .from("game_charges")
+      .select("game_id,player_id,amount,status")
+      .eq("organization_id", organizationId),
+    supabase
+      .from("game_expenses")
+      .select("game_id,amount,status")
+      .eq("organization_id", organizationId),
+    supabase
+      .from("game_guest_confirmations")
+      .select("game_id,player_id,attendance_status,payment_status")
+      .eq("organization_id", organizationId)
+      .eq("attendance_status", "confirmed"),
+  ]);
+
+  if (gamesError || chargesError || expensesError || guestsError) {
+    throw new Error("Não foi possível carregar o financeiro dos jogos.");
+  }
+
+  const monthGames = new Map(
+    (games ?? []).map((game) => [
+      game.id,
+      { playerPrice: Number(game.player_price ?? 0) },
+    ])
+  );
+
+  const monthGuests = (guests ?? []).filter((guest) =>
+    monthGames.has(guest.game_id)
+  );
+
+  const guestPlayerKeys = new Set(
+    monthGuests
+      .filter((guest) => guest.player_id)
+      .map((guest) => `${guest.game_id}:${guest.player_id}`)
+  );
+
+  let expected = 0;
+  let received = 0;
+
+  for (const guest of monthGuests) {
+    const amount = monthGames.get(guest.game_id)?.playerPrice ?? 0;
+    expected += amount;
+    if (guest.payment_status === "paid") received += amount;
+  }
+
+  for (const charge of charges ?? []) {
+    if (!monthGames.has(charge.game_id)) continue;
+
+    const duplicatedByGuest = guestPlayerKeys.has(
+      `${charge.game_id}:${charge.player_id}`
+    );
+    if (duplicatedByGuest) continue;
+
+    const amount = Number(charge.amount ?? 0);
+    expected += amount;
+    if (charge.status === "paid") received += amount;
+  }
+
+  let totalExpenses = 0;
+  let paidExpenses = 0;
+
+  for (const expense of expenses ?? []) {
+    if (!monthGames.has(expense.game_id)) continue;
+    const amount = Number(expense.amount ?? 0);
+    totalExpenses += amount;
+    if (expense.status === "paid") paidExpenses += amount;
+  }
+
+  return {
+    expected,
+    received,
+    open: expected - received,
+    totalExpenses,
+    paidExpenses,
+    openExpenses: totalExpenses - paidExpenses,
+    expectedResult: expected - totalExpenses,
+    receivedResult: received - paidExpenses,
+  };
 }
