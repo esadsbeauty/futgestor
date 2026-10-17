@@ -50,10 +50,17 @@ export type PlayerRecentGameEvent = {
   quantity: number;
 };
 
+export type PlayerGoalRankingEntry = {
+  player_key: string;
+  player_name: string;
+  goals: number;
+};
+
 export type PlayerAccountData = {
   portal: PlayerAccountPortal;
   games: PlayerAccountGame[];
   finance: PlayerAccountFinance | null;
   pendingPlayers: PlayerPendingAmount[];
   recentEvents: PlayerRecentGameEvent[];
+  goalRanking: PlayerGoalRankingEntry[];
 };
