@@ -5,6 +5,7 @@ import type {
   PlayerAccountFinance,
   PlayerAccountGame,
   PlayerAccountPortal,
+  PlayerGoalRankingEntry,
   PlayerPendingAmount,
   PlayerRecentGameEvent,
 } from "@/types/player-account";
@@ -24,12 +25,14 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     { data: financeData, error: financeError },
     { data: pendingData, error: pendingError },
     { data: eventsData, error: eventsError },
+    { data: rankingData, error: rankingError },
   ] = await Promise.all([
     supabase.rpc("get_my_player_portal"),
     supabase.rpc("get_my_player_games"),
     supabase.rpc("get_my_group_finance"),
     supabase.rpc("get_my_group_pending_players"),
     supabase.rpc("get_my_recent_game_events"),
+    supabase.rpc("get_my_goal_ranking"),
   ]);
 
   if (
@@ -38,6 +41,7 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     financeError ||
     pendingError ||
     eventsError ||
+    rankingError ||
     !portalData?.[0]?.available
   ) {
     throw new Error("Não foi possível carregar sua área de participante.");
@@ -49,5 +53,6 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     finance: (financeData?.[0] as PlayerAccountFinance | undefined) ?? null,
     pendingPlayers: (pendingData ?? []) as PlayerPendingAmount[],
     recentEvents: (eventsData ?? []) as PlayerRecentGameEvent[],
+    goalRanking: (rankingData ?? []) as PlayerGoalRankingEntry[],
   };
 }
