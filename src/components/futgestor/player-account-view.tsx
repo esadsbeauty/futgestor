@@ -37,6 +37,25 @@ function AttendanceButtons({ game }: { game: PlayerAccountGame }) {
 
   const status = state.ok && state.status ? state.status : game.attendance_status;
 
+  if (game.attendance_locked) {
+    return (
+      <div className="mt-5 border-t border-[var(--border)] pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-[var(--muted)]">Sua presença</p>
+            <p className="mt-1 text-sm font-bold text-[var(--muted)]">
+              Jogo encerrado para confirmações
+            </p>
+          </div>
+          <Clock3 className="text-[var(--muted)]" size={22} />
+        </div>
+        <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+          O horário deste jogo já passou. A sua resposta fica apenas para consulta.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-5 border-t border-[var(--border)] pt-5">
       <div className="flex items-center justify-between gap-3">
@@ -109,7 +128,11 @@ function GameCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[var(--brand)]">
-            {featured ? "Próximo jogo" : "Jogo agendado"}
+            {game.attendance_locked
+              ? "Jogo encerrado"
+              : featured
+                ? "Próximo jogo"
+                : "Jogo agendado"}
           </p>
           <h3 className="mt-2 text-xl font-black">{game.title}</h3>
         </div>
