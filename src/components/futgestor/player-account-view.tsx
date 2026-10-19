@@ -29,6 +29,25 @@ import type {
 const initialState: PlayerAccountActionState = { ok: false };
 type PlayerTab = "home" | "games" | "ranking" | "finance";
 
+const futsalPositions = [
+  ["goalkeeper", "Goleiro"],
+  ["fixed", "Fixo"],
+  ["winger", "Ala"],
+  ["pivot", "Pivô"],
+  ["other", "Outra"],
+] as const;
+
+const footballPositions = [
+  ["goalkeeper", "Goleiro"],
+  ["full_back", "Lateral"],
+  ["center_back", "Zagueiro"],
+  ["defensive_mid", "Volante"],
+  ["midfielder", "Meio-campo"],
+  ["winger", "Ponta"],
+  ["striker", "Atacante"],
+  ["other", "Outra"],
+] as const;
+
 function AttendanceButtons({ game }: { game: PlayerAccountGame }) {
   const [state, action, pending] = useActionState(
     respondMyGameAttendance,
@@ -84,8 +103,26 @@ function AttendanceButtons({ game }: { game: PlayerAccountGame }) {
         ) : null}
       </div>
 
+      <div className="mt-4">
+        <label>
+          <span className="text-xs text-[var(--muted)]">Sua posição</span>
+          <select
+            name="position"
+            form={`attendance-confirm-${game.game_id}`}
+            className="input mt-2"
+            defaultValue={game.attendance_position ?? game.default_position ?? ""}
+            required
+          >
+            <option value="" disabled>Selecione sua posição</option>
+            {(game.game_format === "field" ? footballPositions : futsalPositions).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <form action={action}>
+        <form id={`attendance-confirm-${game.game_id}`} action={action}>
           <input type="hidden" name="game_id" value={game.game_id} />
           <input type="hidden" name="status" value="confirmed" />
           <button
