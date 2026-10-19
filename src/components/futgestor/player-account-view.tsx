@@ -10,24 +10,26 @@ import {
   MapPin,
   ShieldCheck,
   Trophy,
+  UserRound,
   WalletCards,
   XCircle,
 } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import {
   logoutPlayer,
-  respondMyGameAttendance,
-  type PlayerAccountActionState,
 } from "@/lib/mutations/player-account";
 import { formatCurrency, formatDate, firstName } from "@/lib/formatters";
+import { PlayerGameAttendance } from "@/components/futgestor/player-game-attendance";
+import { PlayerPositionForm } from "@/components/futgestor/player-position-form";
 import type {
   PlayerAccountData,
   PlayerAccountGame,
+  PlayerConfirmedRosterEntry,
   PlayerGamePaymentEntry,
 } from "@/types/player-account";
 
 const initialState: PlayerAccountActionState = { ok: false };
-type PlayerTab = "home" | "games" | "ranking" | "finance";
+type PlayerTab = "home" | "games" | "ranking" | "finance" | "profile";
 
 const futsalPositions = [
   ["goalkeeper", "Goleiro"],
