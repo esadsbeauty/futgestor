@@ -18,6 +18,28 @@ function getAppOrigin(requestOrigin: string) {
 const attendanceSchema = z.object({
   game_id: z.string().uuid(),
   status: z.enum(["confirmed", "declined"]),
+  position: z
+    .enum([
+      "goalkeeper",
+      "fixed",
+      "winger",
+      "pivot",
+      "full_back",
+      "center_back",
+      "defensive_mid",
+      "midfielder",
+      "striker",
+      "other",
+    ])
+    .nullable(),
+}).superRefine((value, ctx) => {
+  if (value.status === "confirmed" && !value.position) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["position"],
+      message: "Escolha sua posição.",
+    });
+  }
 });
 
 export async function respondMyGameAttendance(
@@ -27,6 +49,7 @@ export async function respondMyGameAttendance(
   const parsed = attendanceSchema.safeParse({
     game_id: formData.get("game_id"),
     status: formData.get("status"),
+    position: formData.get("position") ? String(formData.get("position")) : null,
   });
 
   if (!parsed.success) {
@@ -38,6 +61,7 @@ export async function respondMyGameAttendance(
   const { data, error } = await supabase.rpc("respond_my_game_attendance", {
     _game_id: parsed.data.game_id,
     _status: parsed.data.status,
+    _position: parsed.data.status === "confirmed" ? parsed.data.position : null,
   });
 
   if (error || !data) {
