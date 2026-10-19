@@ -105,6 +105,7 @@ function PaymentGameCard({
   rows: PlayerGamePaymentEntry[];
 }) {
   const paid = rows.filter((row) => row.payment_status === "paid").length;
+  const chargeable = rows.filter((row) => row.payment_status !== "isento").length;
 
   return (
     <div className="card overflow-hidden">
@@ -114,7 +115,7 @@ function PaymentGameCard({
           <p className="mt-1 text-xs text-[var(--muted)]">{formatDate(date)}</p>
         </div>
         <span className="rounded-full bg-white/[.04] px-2.5 py-1 text-xs font-bold text-[var(--muted)]">
-          {paid}/{rows.length} pagos
+          {paid}/{chargeable} pagos
         </span>
       </div>
       <div className="divide-y divide-[var(--border)]">
@@ -130,10 +131,12 @@ function PaymentGameCard({
               className={`rounded-full px-2.5 py-1 text-xs font-bold ${
                 row.payment_status === "paid"
                   ? "bg-[var(--success)]/10 text-[var(--success)]"
-                  : "bg-[var(--warning)]/10 text-[var(--warning)]"
+                  : row.payment_status === "isento"
+                    ? "bg-white/[.04] text-[var(--muted)]"
+                    : "bg-[var(--warning)]/10 text-[var(--warning)]"
               }`}
             >
-              {row.payment_status === "paid" ? "Pago" : "Pendente"}
+              {row.payment_status === "paid" ? "Pago" : row.payment_status === "isento" ? "Sem cobrança" : "Pendente"}
             </span>
           </div>
         ))}
