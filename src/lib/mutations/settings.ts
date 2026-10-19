@@ -327,16 +327,6 @@ export async function resetAdminTemporaryAccess(
       return failure(previous, "Administrador não encontrado.");
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("id", member.user_id)
-      .maybeSingle();
-
-    if (profileError || !profile?.email) {
-      return failure(previous, "Não foi possível localizar o e-mail do administrador.");
-    }
-
     const admin = createAdminClient();
     const temporaryPassword = generateAdminTemporaryPassword();
 
@@ -345,6 +335,12 @@ export async function resetAdminTemporaryAccess(
 
     if (authLookupError || !authUserResult.user) {
       return failure(previous, "Não foi possível localizar a conta de acesso.");
+    }
+
+    const adminEmail = authUserResult.user.email;
+
+    if (!adminEmail) {
+      return failure(previous, "Não foi possível localizar o e-mail do administrador.");
     }
 
     const currentMetadata = authUserResult.user.user_metadata ?? {};
@@ -374,7 +370,7 @@ export async function resetAdminTemporaryAccess(
         "Senha temporária gerada. No primeiro acesso, o administrador será obrigado a criar uma nova senha.",
       revision: previous.revision + 1,
       temporaryPassword,
-      temporaryEmail: profile.email,
+      temporaryEmail: adminEmail,
     };
   } catch (error) {
     return failure(
