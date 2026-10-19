@@ -9,11 +9,17 @@ export async function getSettingsData(): Promise<SettingsData> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileResult, membershipResult] = await Promise.all([
+  const [profileResult, membershipResult, playerResult] = await Promise.all([
     supabase.from("profiles").select("id,name,email").eq("id", user.id).maybeSingle(),
     supabase
       .from("organization_members")
       .select("role")
+      .eq("organization_id", organization.id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("players")
+      .select("default_position")
       .eq("organization_id", organization.id)
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -58,6 +64,7 @@ export async function getSettingsData(): Promise<SettingsData> {
       id: profileResult.data.id,
       name: profileResult.data.name,
       email: profileResult.data.email ?? user.email ?? null,
+      default_position: playerResult.data?.default_position ?? null,
     },
     currentRole,
     admins,
