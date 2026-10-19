@@ -78,11 +78,9 @@ function CopyAdminInviteButton({ url }: { url: string }) {
 function AdministratorsForm({
   admins,
   invites,
-  appUrl,
 }: {
   admins: OrganizationAdmin[];
   invites: AdminInvite[];
-  appUrl: string;
 }) {
   const [state, action, pending] = useActionState(createAdminInvite, initialState);
   const owner = admins.find((admin) => admin.role === "owner");
@@ -107,7 +105,7 @@ function AdministratorsForm({
       </form>
     </div>
 
-    {invites.length ? <div className="border-t border-[var(--border)] pt-6"><h3 className="font-semibold">Convites pendentes</h3><div className="mt-3 space-y-3">{invites.map((invite) => { const path = `${appUrl || ""}/convite-admin/${invite.token}` || `/convite-admin/${invite.token}`; const expires = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "UTC" }).format(new Date(invite.expires_at)); return <div key={invite.id} className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold">{invite.email}</p><p className="mt-1 text-xs text-[var(--muted)]">Expira em {expires}</p></div><div className="flex gap-2"><CopyAdminInviteButton url={path}/><form action={deactivateAdminInvite}><input type="hidden" name="invite_id" value={invite.id}/><button className="focus-ring min-h-9 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 text-xs font-bold text-[var(--danger)]">Cancelar</button></form></div></div></div>; })}</div></div> : null}
+    {invites.length ? <div className="border-t border-[var(--border)] pt-6"><h3 className="font-semibold">Convites pendentes</h3><div className="mt-3 space-y-3">{invites.map((invite) => { const path = `/convite-admin/${invite.token}`; const expires = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "UTC" }).format(new Date(invite.expires_at)); return <div key={invite.id} className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold">{invite.email}</p><p className="mt-1 text-xs text-[var(--muted)]">Expira em {expires}</p></div><div className="flex gap-2"><CopyAdminInviteButton url={path}/><form action={deactivateAdminInvite}><input type="hidden" name="invite_id" value={invite.id}/><button className="focus-ring min-h-9 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 text-xs font-bold text-[var(--danger)]">Cancelar</button></form></div></div></div>; })}</div></div> : null}
   </div>;
 }
 
@@ -128,7 +126,7 @@ export function SettingsForms({ data }: { data: SettingsData }) {
     </SettingsSection>
 
     {data.currentRole === "owner" ? <SettingsSection id="administradores" title="Administradores" description="Escolha quem pode acessar e administrar esta organização." icon={UsersRound}>
-      <AdministratorsForm admins={data.admins} invites={data.adminInvites} appUrl={data.appUrl}/>
+      <AdministratorsForm admins={data.admins} invites={data.adminInvites}/>
     </SettingsSection> : null}
 
     <SettingsSection id="financeiro" title="Cobrança e mensalidade" description="Defina como o grupo cobra seus participantes." icon={CircleDollarSign}>
