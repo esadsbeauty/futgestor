@@ -25,6 +25,7 @@ function participantPayload(formData: FormData) {
     joined_at: formData.get("joined_at"),
     status: formData.get("status"),
     billing_type: formData.get("billing_type") ?? "monthly",
+    default_position: formData.get("default_position") ? String(formData.get("default_position")) : null,
     notes: formData.get("notes") ?? "",
   };
 }
