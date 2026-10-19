@@ -16,7 +16,7 @@ import {
 import { useActionState, useState } from "react";
 import {
   drawPublicGameTeams,
-  markPublicGameGuestPaid,
+  markGameRosterPlayerPaid,
   promoteGameGuestToParticipant,
   removePublicGameConfirmation,
   updatePublicGameConfirmation,
@@ -26,7 +26,6 @@ import {
 import type { BillingMode } from "@/types/billing";
 import type {
   Game,
-  GameGuestConfirmation,
   GameRosterPlayer,
   GuestPosition,
   GuestSportType,
@@ -78,7 +77,7 @@ function PromoteGuestForm({
   billingMode,
   onClose,
 }: {
-  player: GameGuestConfirmation;
+  player: GameRosterPlayer;
   gameId: string;
   billingMode: BillingMode;
   onClose: () => void;
@@ -143,7 +142,7 @@ function PromoteGuestForm({
       action={action}
       className="rounded-2xl border border-[var(--brand)]/30 bg-[var(--brand)]/5 p-4"
     >
-      <input type="hidden" name="confirmation_id" value={player.id} />
+      <input type="hidden" name="confirmation_id" value={player.guest_confirmation_id ?? ""} />
       <input type="hidden" name="game_id" value={gameId} />
 
       <p className="text-sm font-black">Transformar em participante</p>
@@ -261,9 +260,31 @@ function PlayerRow({
                 : "Participante confirmado"}
             </span>
           </div>
-          <span className="shrink-0 rounded-full bg-[var(--success)]/10 px-2 py-1 text-[10px] font-bold text-[var(--success)]">
+          <span className="shrink-0 rounded-full bg-[var(--brand)]/10 px-2 py-1 text-[10px] font-bold text-[var(--brand)]">
             Participante
           </span>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2">
+          {player.payment_status === "paid" ? (
+            <span className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--success)]/10 px-3 text-xs font-bold text-[var(--success)]">
+              <CheckCircle2 size={15} />
+              Pago
+            </span>
+          ) : player.payment_status === "pending" ? (
+            <form action={markGameRosterPlayerPaid} className="min-w-0 flex-1">
+              <input type="hidden" name="roster_id" value={player.id} />
+              <input type="hidden" name="game_id" value={gameId} />
+              <button className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-3 text-xs font-bold text-[var(--success)]">
+                <CircleDollarSign size={15} />
+                Marcar pago
+              </button>
+            </form>
+          ) : (
+            <span className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-white/[.03] px-3 text-xs font-bold text-[var(--muted)]">
+              Sem cobrança
+            </span>
+          )}
         </div>
       </div>
     );
@@ -272,7 +293,7 @@ function PlayerRow({
   if (promoting) {
     return (
       <PromoteGuestForm
-        player={player as GameGuestConfirmation}
+        player={player}
         gameId={gameId}
         billingMode={billingMode}
         onClose={() => setPromoting(false)}
@@ -286,7 +307,7 @@ function PlayerRow({
         action={action}
         className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"
       >
-        <input type="hidden" name="confirmation_id" value={player.id} />
+        <input type="hidden" name="confirmation_id" value={player.guest_confirmation_id ?? ""} />
         <input type="hidden" name="game_id" value={gameId} />
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -433,8 +454,8 @@ function PlayerRow({
       <div className="mt-3 flex items-center gap-2">
         {player.attendance_status === "confirmed" &&
         player.payment_status !== "paid" ? (
-          <form action={markPublicGameGuestPaid} className="min-w-0 flex-1">
-            <input type="hidden" name="confirmation_id" value={player.id} />
+          <form action={markGameRosterPlayerPaid} className="min-w-0 flex-1">
+            <input type="hidden" name="roster_id" value={player.id} />
             <input type="hidden" name="game_id" value={gameId} />
             <button
               className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-3 text-xs font-bold text-[var(--success)]"
@@ -472,7 +493,7 @@ function PlayerRow({
 
         {player.payment_status !== "paid" ? (
           <form action={removePublicGameConfirmation}>
-            <input type="hidden" name="confirmation_id" value={player.id} />
+            <input type="hidden" name="confirmation_id" value={player.guest_confirmation_id ?? ""} />
             <input type="hidden" name="game_id" value={gameId} />
             <button
               aria-label={`Excluir ${player.name}`}
