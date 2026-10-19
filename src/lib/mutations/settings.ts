@@ -13,6 +13,8 @@ export type SettingsActionState = {
   revision: number;
   fieldErrors?: Record<string, string[] | undefined>;
   inviteUrl?: string;
+  temporaryPassword?: string;
+  temporaryEmail?: string;
 };
 
 const failure = (previous: SettingsActionState, message: string): SettingsActionState => ({ ok: false, message, revision: previous.revision + 1 });
@@ -290,5 +292,94 @@ export async function deactivateAdminInvite(formData: FormData) {
     revalidatePath("/configuracoes");
   } catch {
     return;
+  }
+}
+
+
+function generateAdminTemporaryPassword() {
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+  return `Fut@${suffix}9A`;
+}
+
+export async function resetAdminTemporaryAccess(
+  previous: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const memberId = String(formData.get("member_id") ?? "");
+
+  if (!memberId) {
+    return failure(previous, "Administrador inválido.");
+  }
+
+  try {
+    const { organization, supabase } = await requireOrganizationOwner();
+
+    const { data: member, error: memberError } = await supabase
+      .from("organization_members")
+      .select("id,user_id,role")
+      .eq("id", memberId)
+      .eq("organization_id", organization.id)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (memberError || !member) {
+      return failure(previous, "Administrador não encontrado.");
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("id", member.user_id)
+      .maybeSingle();
+
+    if (profileError || !profile?.email) {
+      return failure(previous, "Não foi possível localizar o e-mail do administrador.");
+    }
+
+    const admin = createAdminClient();
+    const temporaryPassword = generateAdminTemporaryPassword();
+
+    const { data: authUserResult, error: authLookupError } =
+      await admin.auth.admin.getUserById(member.user_id);
+
+    if (authLookupError || !authUserResult.user) {
+      return failure(previous, "Não foi possível localizar a conta de acesso.");
+    }
+
+    const currentMetadata = authUserResult.user.user_metadata ?? {};
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(
+      member.user_id,
+      {
+        password: temporaryPassword,
+        user_metadata: {
+          ...currentMetadata,
+          account_type: "admin",
+          must_change_password: true,
+        },
+      }
+    );
+
+    if (updateError) {
+      return failure(previous, "Não foi possível gerar a senha temporária.");
+    }
+
+    revalidatePath("/configuracoes");
+
+    return {
+      ok: true,
+      message:
+        "Senha temporária gerada. No primeiro acesso, o administrador será obrigado a criar uma nova senha.",
+      revision: previous.revision + 1,
+      temporaryPassword,
+      temporaryEmail: profile.email,
+    };
+  } catch (error) {
+    return failure(
+      previous,
+      error instanceof Error
+        ? error.message
+        : "Não foi possível redefinir o acesso do administrador."
+    );
   }
 }
