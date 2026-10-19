@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { effectiveInviteBillingType } from "@/lib/invites";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   acceptPlayerInviteSchema,
   acceptPlayerInviteWithAccountSchema,
@@ -154,7 +155,6 @@ export async function acceptPlayerInviteWithAccount(
   formData: FormData
 ): Promise<InviteActionState> {
   const token = String(formData.get("token") ?? "");
-  const origin = String(formData.get("origin") ?? "");
 
   const parsed = acceptPlayerInviteWithAccountSchema.safeParse({
     name: formData.get("name"),
@@ -171,52 +171,73 @@ export async function acceptPlayerInviteWithAccount(
     };
   }
 
-  const supabase = await createClient();
+  try {
+    const admin = createAdminClient();
+    const normalizedEmail = parsed.data.email.toLowerCase();
 
-  const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: {
-      emailRedirectTo: `${getAppOrigin(origin)}/auth/callback?next=/meu-grupo`,
-      data: {
-        account_type: "player",
-        invite_token: token,
-        name: parsed.data.name,
-        whatsapp: parsed.data.whatsapp,
-      },
-    },
-  });
+    const { data: inviteData, error: inviteError } = await admin.rpc(
+      "get_player_invite",
+      { _token: token }
+    );
 
-  if (error) {
-    const message = error.message.toLowerCase();
+    if (inviteError || !inviteData?.[0]?.available) {
+      return fail("Este convite não está mais disponível.");
+    }
 
-    if (
-      message.includes("already") ||
-      message.includes("registered") ||
-      message.includes("exists")
-    ) {
+    const { data: existingUsers, error: listUsersError } =
+      await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+
+    if (listUsersError) {
+      return fail("Não foi possível validar o e-mail informado.");
+    }
+
+    const emailExists = existingUsers.users.some(
+      (user) => user.email?.toLowerCase() === normalizedEmail
+    );
+
+    if (emailExists) {
       return fail(
-        "Este e-mail já possui uma conta. Entre com sua senha ou recupere o acesso."
+        "Este e-mail já possui uma conta. Entre com sua senha ou solicite um novo acesso ao responsável."
       );
     }
 
-    if (
-      message.includes("whatsapp") ||
-      message.includes("duplicate")
-    ) {
-      return fail("Este WhatsApp já está cadastrado neste grupo.");
+    const { data: createdUser, error: createUserError } =
+      await admin.auth.admin.createUser({
+        email: normalizedEmail,
+        password: parsed.data.password,
+        email_confirm: true,
+        user_metadata: {
+          account_type: "player",
+          invite_token: token,
+          name: parsed.data.name,
+          whatsapp: parsed.data.whatsapp,
+        },
+      });
+
+    if (createUserError || !createdUser.user) {
+      const message = createUserError?.message?.toLowerCase() ?? "";
+
+      if (
+        message.includes("whatsapp") ||
+        message.includes("duplicate") ||
+        message.includes("already registered")
+      ) {
+        return fail("Este WhatsApp já está cadastrado neste grupo.");
+      }
+
+      return fail(
+        "Não foi possível criar sua conta. Verifique os dados e tente novamente."
+      );
     }
 
+    return {
+      ok: true,
+      message: "Conta criada. Você já pode entrar no seu grupo.",
+      playerName: parsed.data.name,
+    };
+  } catch {
     return fail(
       "Não foi possível criar sua conta. Verifique os dados e tente novamente."
     );
   }
-
-  return {
-    ok: true,
-    message: data.session
-      ? "Conta criada. Você já pode acessar seu grupo."
-      : "Conta criada. Confira seu e-mail para confirmar o acesso e depois faça login.",
-    playerName: parsed.data.name,
-  };
 }
