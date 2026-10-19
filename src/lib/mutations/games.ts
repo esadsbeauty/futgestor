@@ -13,6 +13,36 @@ export type GameActionState={ok:boolean;message?:string;fieldErrors?:Record<stri
 const fail=(message:string):GameActionState=>({ok:false,message});
 const payload=(f:FormData)=>({title:f.get("title"),game_date:f.get("game_date"),start_time:f.get("start_time")??"",location:f.get("location")??"",player_price:f.get("player_price"),notes:f.get("notes")??"",status:f.get("status")??"scheduled",game_format:f.get("game_format")??"court"});
 export async function createGame(_:GameActionState,f:FormData):Promise<GameActionState>{const p=gameSchema.safeParse(payload(f));if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};let id:string|undefined;try{const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error}=await s.from("games").insert({...p.data,start_time:p.data.start_time||null,organization_id:o.id,created_by:(await s.auth.getUser()).data.user!.id}).select("id").single();if(error)return fail("Não foi possível criar o jogo.");id=data.id;}catch{return fail("Não foi possível criar o jogo.");}redirect(`/jogos/${id}`);}
+export async function respondOwnGameAttendance(formData: FormData) {
+  const gameId = String(formData.get("game_id") ?? "");
+  const status = String(formData.get("status") ?? "");
+
+  if (!gameId || !["confirmed", "declined"].includes(status)) return;
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const { data: game } = await supabase
+    .from("games")
+    .select("id")
+    .eq("id", gameId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (!game) return;
+
+  const { error } = await supabase.rpc("respond_my_game_attendance", {
+    _game_id: gameId,
+    _status: status,
+  });
+
+  if (error) return;
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/jogos");
+  revalidatePath("/meu-grupo");
+}
+
 export async function updateGame(_:GameActionState,f:FormData):Promise<GameActionState>{const id=String(f.get("game_id")??"");const p=gameSchema.safeParse(payload(f));if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error}=await s.from("games").update({...p.data,start_time:p.data.start_time||null,updated_at:new Date().toISOString()}).eq("id",id).eq("organization_id",o.id).select("id").maybeSingle();if(error||!data)return fail("Não foi possível atualizar o jogo.");revalidatePath(`/jogos/${id}`);revalidatePath("/jogos");return{ok:true,message:"Jogo atualizado."};}
 export async function addPlayersToGame(_:GameActionState,f:FormData):Promise<GameActionState>{const game=String(f.get("game_id")??"");const p=gamePlayersSchema.safeParse({player_ids:f.getAll("player_ids")});if(!p.success)return fail("Selecione ao menos um jogador.");const o=await getCurrentOrganizationForUser();const s=await createClient();const[{data:g},{data:players}]=await Promise.all([s.from("games").select("id,player_price").eq("id",game).eq("organization_id",o.id).maybeSingle(),s.from("players").select("id,billing_type").eq("organization_id",o.id).eq("status","active").in("id",p.data.player_ids)]);if(!g||!players)return fail("Jogo ou jogadores inválidos.");const allowed=players.filter(x=>o.billing_mode!=="hybrid"||x.billing_type==="per_game");if(!allowed.length)return fail("Nenhum jogador elegível foi selecionado.");const{error}=await s.from("game_charges").upsert(allowed.map(x=>({organization_id:o.id,game_id:game,player_id:x.id,amount:g.player_price})),{onConflict:"game_id,player_id",ignoreDuplicates:true});if(error)return fail("Não foi possível adicionar os jogadores.");revalidatePath(`/jogos/${game}`);return{ok:true,message:"Jogadores adicionados."};}
 export async function removePendingGameCharge(f:FormData){const id=String(f.get("charge_id"));const game=String(f.get("game_id"));const o=await getCurrentOrganizationForUser();const s=await createClient();await s.from("game_charges").delete().eq("id",id).eq("game_id",game).eq("organization_id",o.id).eq("status","pending");revalidatePath(`/jogos/${game}`);}
