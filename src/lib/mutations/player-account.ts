@@ -160,3 +160,62 @@ export async function activateExistingPlayerAccount(
       : "Conta ativada. Confira seu e-mail para confirmar o acesso e depois faça login.",
   };
 }
+
+
+const positionSchema = z.enum([
+  "goalkeeper",
+  "fixed",
+  "winger",
+  "pivot",
+  "full_back",
+  "center_back",
+  "defensive_mid",
+  "midfielder",
+  "striker",
+  "other",
+]);
+
+export async function updateMyPlayerPosition(
+  _: PlayerAccountActionState,
+  formData: FormData
+): Promise<PlayerAccountActionState> {
+  const parsed = positionSchema.safeParse(formData.get("position"));
+  if (!parsed.success) {
+    return { ok: false, message: "Selecione uma posição válida." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { ok: false, message: "Sua sessão expirou." };
+
+  const { data: player, error: lookupError } = await supabase
+    .from("players")
+    .select("id,organization_id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (lookupError || !player) {
+    return { ok: false, message: "Não foi possível localizar seu perfil de participante." };
+  }
+
+  const { error } = await supabase
+    .from("players")
+    .update({ default_position: parsed.data })
+    .eq("id", player.id)
+    .eq("organization_id", player.organization_id);
+
+  if (error) {
+    return { ok: false, message: "Não foi possível atualizar sua posição." };
+  }
+
+  revalidatePath("/meu-grupo");
+  revalidatePath("/configuracoes");
+  revalidatePath("/participantes");
+
+  return { ok: true, message: "Posição atualizada com sucesso." };
+}
