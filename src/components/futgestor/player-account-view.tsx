@@ -2,7 +2,6 @@
 
 import {
   CalendarDays,
-  CheckCircle2,
   Clock3,
   CircleDollarSign,
   House,
@@ -12,12 +11,9 @@ import {
   Trophy,
   UserRound,
   WalletCards,
-  XCircle,
 } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
-import {
-  logoutPlayer,
-} from "@/lib/mutations/player-account";
+import { useMemo, useState } from "react";
+import { logoutPlayer } from "@/lib/mutations/player-account";
 import { formatCurrency, formatDate, firstName } from "@/lib/formatters";
 import { PlayerGameAttendance } from "@/components/futgestor/player-game-attendance";
 import { PlayerPositionForm } from "@/components/futgestor/player-position-form";
@@ -28,7 +24,6 @@ import type {
   PlayerGamePaymentEntry,
 } from "@/types/player-account";
 
-const initialState: PlayerAccountActionState = { ok: false };
 type PlayerTab = "home" | "games" | "ranking" | "finance" | "profile";
 
 function GameCard({
