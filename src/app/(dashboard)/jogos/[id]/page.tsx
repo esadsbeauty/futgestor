@@ -88,23 +88,23 @@ export default async function GamePage({
     getGameRosterPlayers(o.id, id),
   ]);
 
-  const publicConfirmedExpected =
-    guestConfirmations.filter(
-      (player) => player.attendance_status === "confirmed"
-    ).length * Number(game.player_price);
+  const rosterExpected = rosterPlayers
+    .filter((player) => player.attendance_status === "confirmed")
+    .reduce((total, player) => total + Number(player.amount ?? 0), 0);
 
-  const publicConfirmedReceived =
-    guestConfirmations.filter(
+  const rosterReceived = rosterPlayers
+    .filter(
       (player) =>
         player.attendance_status === "confirmed" &&
         player.payment_status === "paid"
-    ).length * Number(game.player_price);
+    )
+    .reduce((total, player) => total + Number(player.amount ?? 0), 0);
 
   const summary = gameFinancialSummary(
-    charges,
+    [],
     expenses,
-    publicConfirmedExpected,
-    publicConfirmedReceived
+    rosterExpected,
+    rosterReceived
   );
 
   return (
