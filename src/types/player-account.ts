@@ -89,6 +89,7 @@ export type PlayerAccountData = {
   gameHistory: PlayerGameHistoryEntry[];
   gamePayments: PlayerGamePaymentEntry[];
   confirmedRoster: PlayerConfirmedRosterEntry[];
+  defaultPosition: import("@/types/games").GuestPosition | null;
 };
 
 
