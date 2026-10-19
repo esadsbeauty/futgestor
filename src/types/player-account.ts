@@ -75,7 +75,7 @@ export type PlayerGamePaymentEntry = {
   game_title: string;
   game_date: string;
   player_name: string;
-  payment_status: "pending" | "paid";
+  payment_status: "pending" | "paid" | "isento";
   amount: number;
 };
 
