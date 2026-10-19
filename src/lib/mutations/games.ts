@@ -47,7 +47,67 @@ export async function respondOwnGameAttendance(formData: FormData) {
 }
 
 export async function updateGame(_:GameActionState,f:FormData):Promise<GameActionState>{const id=String(f.get("game_id")??"");const p=gameSchema.safeParse(payload(f));if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error}=await s.from("games").update({...p.data,start_time:p.data.start_time||null,updated_at:new Date().toISOString()}).eq("id",id).eq("organization_id",o.id).select("id").maybeSingle();if(error||!data)return fail("Não foi possível atualizar o jogo.");revalidatePath(`/jogos/${id}`);revalidatePath("/jogos");return{ok:true,message:"Jogo atualizado."};}
-export async function addPlayersToGame(_:GameActionState,f:FormData):Promise<GameActionState>{const game=String(f.get("game_id")??"");const p=gamePlayersSchema.safeParse({player_ids:f.getAll("player_ids")});if(!p.success)return fail("Selecione ao menos um jogador.");const o=await getCurrentOrganizationForUser();const s=await createClient();const[{data:g},{data:players}]=await Promise.all([s.from("games").select("id,player_price").eq("id",game).eq("organization_id",o.id).maybeSingle(),s.from("players").select("id,billing_type").eq("organization_id",o.id).eq("status","active").in("id",p.data.player_ids)]);if(!g||!players)return fail("Jogo ou jogadores inválidos.");const allowed=players.filter(x=>o.billing_mode!=="hybrid"||x.billing_type==="per_game");if(!allowed.length)return fail("Nenhum jogador elegível foi selecionado.");const{error}=await s.from("game_charges").upsert(allowed.map(x=>({organization_id:o.id,game_id:game,player_id:x.id,amount:g.player_price})),{onConflict:"game_id,player_id",ignoreDuplicates:true});if(error)return fail("Não foi possível adicionar os jogadores.");revalidatePath(`/jogos/${game}`);return{ok:true,message:"Jogadores adicionados."};}
+export async function addPlayersToGame(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
+  const gameId = String(formData.get("game_id") ?? "");
+  const parsed = gamePlayersSchema.safeParse({
+    player_ids: formData.getAll("player_ids"),
+  });
+
+  if (!parsed.success) return fail("Selecione ao menos um jogador.");
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const [
+    { data: game },
+    { data: players },
+  ] = await Promise.all([
+    supabase
+      .from("games")
+      .select("id,game_format")
+      .eq("id", gameId)
+      .eq("organization_id", organization.id)
+      .maybeSingle(),
+    supabase
+      .from("players")
+      .select("id,default_position")
+      .eq("organization_id", organization.id)
+      .eq("status", "active")
+      .in("id", parsed.data.player_ids),
+  ]);
+
+  if (!game || !players?.length) {
+    return fail("Jogo ou jogadores inválidos.");
+  }
+
+  const sportType = game.game_format === "field" ? "football" : "futsal";
+
+  const { error } = await supabase.from("game_attendances").upsert(
+    players.map((player) => ({
+      organization_id: organization.id,
+      game_id: gameId,
+      player_id: player.id,
+      status: "confirmed",
+      sport_type: sportType,
+      position: player.default_position,
+      responded_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })),
+    { onConflict: "game_id,player_id" }
+  );
+
+  if (error) return fail("Não foi possível adicionar os jogadores ao jogo.");
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/financeiro");
+  revalidatePath("/dashboard");
+
+  return { ok: true, message: "Jogadores adicionados ao jogo." };
+}
+
 export async function removePendingGameCharge(f:FormData){const id=String(f.get("charge_id"));const game=String(f.get("game_id"));const o=await getCurrentOrganizationForUser();const s=await createClient();await s.from("game_charges").delete().eq("id",id).eq("game_id",game).eq("organization_id",o.id).eq("status","pending");revalidatePath(`/jogos/${game}`);}
 export async function payGameCharge(f:FormData){const id=String(f.get("charge_id"));const game=String(f.get("game_id"));const o=await getCurrentOrganizationForUser();const s=await createClient();const{data}=await s.from("game_charges").select("id").eq("id",id).eq("game_id",game).eq("organization_id",o.id).maybeSingle();if(data)await s.rpc("mark_game_charge_paid",{_charge:id});revalidatePath(`/jogos/${game}`);revalidatePath("/financeiro");}
 export async function createGameExpense(_:GameActionState,f:FormData):Promise<GameActionState>{const game=String(f.get("game_id"));const p=gameExpenseSchema.safeParse({description:f.get("description"),category:f.get("category"),amount:f.get("amount")});if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};const o=await getCurrentOrganizationForUser();const s=await createClient();const{data:g}=await s.from("games").select("id").eq("id",game).eq("organization_id",o.id).maybeSingle();if(!g)return fail("Jogo inválido.");const{error}=await s.from("game_expenses").insert({...p.data,organization_id:o.id,game_id:game});if(error)return fail("Não foi possível adicionar a despesa.");revalidatePath(`/jogos/${game}`);return{ok:true,message:"Despesa adicionada."};}
