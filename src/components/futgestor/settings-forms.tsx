@@ -175,9 +175,14 @@ function AdministratorsForm({
   </div>;
 }
 
-function ProfileForm({ name, email }: { name: string; email: string | null }) {
+function ProfileForm({ name, email, defaultPosition }: { name: string; email: string | null; defaultPosition: string | null }) {
   const [state, action, pending] = useActionState(updateProfile, initialState);
-  return <form action={action} className="space-y-5"><label className="block"><span className="text-sm font-medium">Nome</span><input name="name" required defaultValue={name} autoComplete="name" className="input"/><FieldError errors={state.fieldErrors?.name}/></label><label className="block"><span className="text-sm font-medium">E-mail</span><input value={email ?? ""} readOnly type="email" className="input cursor-not-allowed opacity-70"/><span className="mt-1.5 block text-xs text-[var(--muted)]">A troca de e-mail não está disponível nesta etapa.</span></label><FormFeedback state={state}/><SubmitButton pending={pending}>Salvar perfil</SubmitButton></form>;
+  return <form action={action} className="space-y-5">
+    <label className="block"><span className="text-sm font-medium">Nome</span><input name="name" required defaultValue={name} autoComplete="name" className="input"/><FieldError errors={state.fieldErrors?.name}/></label>
+    <label className="block"><span className="text-sm font-medium">Posição principal</span><select name="default_position" defaultValue={defaultPosition ?? ""} className="input"><option value="">Não definida</option><option value="goalkeeper">Goleiro</option><option value="fixed">Fixo</option><option value="winger">Ala / Ponta</option><option value="pivot">Pivô</option><option value="full_back">Lateral</option><option value="center_back">Zagueiro</option><option value="defensive_mid">Volante</option><option value="midfielder">Meio-campo</option><option value="striker">Atacante</option><option value="other">Outra</option></select><FieldError errors={state.fieldErrors?.default_position}/></label>
+    <label className="block"><span className="text-sm font-medium">E-mail</span><input value={email ?? ""} readOnly type="email" className="input cursor-not-allowed opacity-70"/><span className="mt-1.5 block text-xs text-[var(--muted)]">A troca de e-mail não está disponível nesta etapa.</span></label>
+    <FormFeedback state={state}/><SubmitButton pending={pending}>Salvar perfil</SubmitButton>
+  </form>;
 }
 
 function SecurityForm() {
@@ -208,7 +213,7 @@ export function SettingsForms({ data }: { data: SettingsData }) {
     </SettingsSection>
 
     <SettingsSection id="perfil" title="Meu perfil" description="Mantenha o nome usado na sua conta atualizado." icon={UserRound}>
-      <ProfileForm name={data.profile.name} email={data.profile.email}/>
+      <ProfileForm name={data.profile.name} email={data.profile.email} defaultPosition={data.profile.default_position}/>
     </SettingsSection>
 
     <SettingsSection id="seguranca" title="Segurança" description="Atualize sua senha ou encerre a sessão atual." icon={LockKeyhole}>
