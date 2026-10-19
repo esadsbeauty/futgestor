@@ -88,4 +88,13 @@ export type PlayerAccountData = {
   goalRanking: PlayerGoalRankingEntry[];
   gameHistory: PlayerGameHistoryEntry[];
   gamePayments: PlayerGamePaymentEntry[];
+  confirmedRoster: PlayerConfirmedRosterEntry[];
+};
+
+
+export type PlayerConfirmedRosterEntry = {
+  game_id: string;
+  player_name: string;
+  source: "guest" | "participant";
+  position: import("@/types/games").GuestPosition | null;
 };
