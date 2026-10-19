@@ -27,6 +27,7 @@ import type { BillingMode } from "@/types/billing";
 import type {
   Game,
   GameGuestConfirmation,
+  GameRosterPlayer,
   GuestPosition,
   GuestSportType,
 } from "@/types/games";
@@ -222,7 +223,7 @@ function PlayerRow({
   gameId,
   billingMode,
 }: {
-  player: GameGuestConfirmation;
+  player: GameRosterPlayer;
   gameId: string;
   billingMode: BillingMode;
 }) {
@@ -246,10 +247,32 @@ function PlayerRow({
         ? footballPositions
         : [];
 
+  if (player.source === "participant") {
+    return (
+      <div className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-3">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <span className="block break-words text-sm font-bold leading-tight">
+              {player.name}
+            </span>
+            <span className="mt-1 block text-xs leading-snug text-[var(--muted)]">
+              {player.position
+                ? `${player.sport_type ? sportTypeLabels[player.sport_type] + " · " : ""}${positionLabels[player.position]}`
+                : "Participante confirmado"}
+            </span>
+          </div>
+          <span className="shrink-0 rounded-full bg-[var(--success)]/10 px-2 py-1 text-[10px] font-bold text-[var(--success)]">
+            Participante
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   if (promoting) {
     return (
       <PromoteGuestForm
-        player={player}
+        player={player as GameGuestConfirmation}
         gameId={gameId}
         billingMode={billingMode}
         onClose={() => setPromoting(false)}
@@ -472,7 +495,7 @@ export function PublicGameInviteCard({
   billingMode,
 }: {
   game: Game;
-  confirmations: GameGuestConfirmation[];
+  confirmations: GameRosterPlayer[];
   appUrl: string;
   billingMode: BillingMode;
 }) {
