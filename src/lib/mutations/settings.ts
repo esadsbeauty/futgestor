@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentOrganizationForUser } from "@/lib/queries/participants";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { billingModeSettingsSchema, financialSettingsSchema, financialTransparencySettingsSchema, organizationSettingsSchema, passwordSettingsSchema, profileSettingsSchema } from "@/lib/validators/settings";
 
