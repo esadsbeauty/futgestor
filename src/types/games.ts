@@ -71,6 +71,9 @@ export type GameAttendancePlayer = {
   status: GameAttendanceStatus;
   responded_at: string | null;
   is_current_user: boolean;
+  position: GuestPosition | null;
+  default_position: GuestPosition | null;
+  team_number: number | null;
 };
 
 export type GameAttendanceSummary = {
@@ -133,4 +136,23 @@ export type PublicGameInviteResponse = {
   sport_type: GuestSportType | null;
   position: GuestPosition | null;
   created_at: string;
+};
+
+
+export type GameRosterPlayer = {
+  id: string;
+  source: "guest" | "participant";
+  organization_id: string;
+  game_id: string;
+  name: string;
+  attendance_status: GuestAttendanceStatus;
+  sport_type: GuestSportType | null;
+  position: GuestPosition | null;
+  team_number: number | null;
+  player_id: string | null;
+  payment_status: "pending" | "paid";
+  paid_at: string | null;
+  payment_transaction_id: string | null;
+  created_at: string;
+  updated_at: string;
 };
