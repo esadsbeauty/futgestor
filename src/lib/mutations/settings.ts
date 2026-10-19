@@ -353,6 +353,7 @@ export async function resetAdminTemporaryAccess(
       member.user_id,
       {
         password: temporaryPassword,
+        email_confirm: true,
         user_metadata: {
           ...currentMetadata,
           account_type: "admin",
