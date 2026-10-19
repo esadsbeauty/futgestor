@@ -72,16 +72,37 @@ export async function updateBillingMode(previous: SettingsActionState, formData:
 }
 
 export async function updateProfile(previous: SettingsActionState, formData: FormData): Promise<SettingsActionState> {
-  const parsed = profileSettingsSchema.safeParse({ name: formData.get("name") });
+  const parsed = profileSettingsSchema.safeParse({
+    name: formData.get("name"),
+    default_position: formData.get("default_position") ? String(formData.get("default_position")) : null,
+  });
   if (!parsed.success) return validationFailure(previous, parsed.error.flatten().fieldErrors);
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return failure(previous, "Sua sessão expirou. Entre novamente.");
-    const { data, error } = await supabase.from("profiles").update(parsed.data).eq("id", user.id).select("id").maybeSingle();
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ name: parsed.data.name })
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
     if (error || !data) return failure(previous, "Não foi possível atualizar o perfil.");
+
+    const organization = await getCurrentOrganizationForUser();
+    await supabase
+      .from("players")
+      .update({
+        name: parsed.data.name,
+        default_position: parsed.data.default_position,
+      })
+      .eq("organization_id", organization.id)
+      .eq("user_id", user.id);
+
     revalidatePath("/configuracoes");
     revalidatePath("/dashboard");
+    revalidatePath("/participantes");
+    revalidatePath("/meu-grupo");
     return { ok: true, message: "Perfil atualizado.", revision: previous.revision + 1 };
   } catch {
     return failure(previous, "Não foi possível atualizar o perfil.");
