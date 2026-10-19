@@ -24,6 +24,7 @@ import { gameEventPlayers } from "@/lib/game-event-players";
 import {
   payGameCharge,
   payGameExpense,
+  respondOwnGameAttendance,
   removeGameEvent,
   removePendingGameCharge,
 } from "@/lib/mutations/games";
@@ -217,6 +218,56 @@ export default async function GamePage({
             </span>
           </div>
         </div>
+
+        {attendance.players.some((player) => player.is_current_user) && (
+          <div className="card mt-4 p-4">
+            {attendance.players
+              .filter((player) => player.is_current_user)
+              .map((player) => (
+                <div key={player.player_id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[.16em] text-[var(--brand)]">
+                      Sua confirmação
+                    </p>
+                    <p className="mt-1 font-bold">{player.player_name}</p>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      Status atual: {attendanceLabel[player.status]}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <form action={respondOwnGameAttendance}>
+                      <input type="hidden" name="game_id" value={id} />
+                      <input type="hidden" name="status" value="confirmed" />
+                      <button
+                        className={`rounded-xl px-4 py-2.5 text-sm font-bold ${
+                          player.status === "confirmed"
+                            ? "bg-[var(--success)] text-[#02150d]"
+                            : "border border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success)]"
+                        }`}
+                      >
+                        Vou jogar
+                      </button>
+                    </form>
+
+                    <form action={respondOwnGameAttendance}>
+                      <input type="hidden" name="game_id" value={id} />
+                      <input type="hidden" name="status" value="declined" />
+                      <button
+                        className={`rounded-xl px-4 py-2.5 text-sm font-bold ${
+                          player.status === "declined"
+                            ? "bg-[var(--danger)] text-white"
+                            : "border border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)]"
+                        }`}
+                      >
+                        Não vou
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
 
         <div className="card mt-4 divide-y divide-[var(--border)]">
           {attendance.players.length ? (
