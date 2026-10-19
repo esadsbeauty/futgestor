@@ -525,6 +525,19 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
         </section>
       ) : null}
 
+      {tab === "profile" ? (
+        <section className="mt-8">
+          <SectionTitle eyebrow="Seu cadastro" title="Perfil" icon={<UserRound size={20} />} />
+          <div className="card mt-5 p-5">
+            <p className="font-bold">{portal.player_name}</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Sua posição principal será sugerida automaticamente quando você confirmar presença.
+            </p>
+            <PlayerPositionForm defaultPosition={defaultPosition} />
+          </div>
+        </section>
+      ) : null}
+
       <nav className="mobile-bottom-nav flex justify-around rounded-[1.4rem] border border-[var(--border-strong)] bg-[#07142b]/95 p-2 shadow-[0_16px_50px_rgba(0,0,0,.55)] backdrop-blur-2xl">
         {navItems.map(({ id, label, icon: Icon }) => (
           <button
