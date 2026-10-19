@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { participantSchema } from "@/lib/validators/participant";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { currentReferenceMonth, getCurrentOrganizationForUser } from "@/lib/queries/participants";
 import { effectivePlayerBillingType, shouldGenerateMonthlyFee } from "@/lib/billing";
 
@@ -89,4 +91,94 @@ export async function markParticipantFeePaid(_: ParticipantActionState, formData
   } catch {
     return initialError("Não foi possível marcar a mensalidade como paga.");
   }
+}
+
+
+export async function deleteParticipant(formData: FormData) {
+  const participantId = String(formData.get("participant_id") ?? "");
+  if (!participantId) return;
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", organization.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    throw new Error("Sem permissão para excluir participantes.");
+  }
+
+  const { data: participant, error: participantError } = await supabase
+    .from("players")
+    .select("id,user_id,name")
+    .eq("id", participantId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (participantError || !participant) {
+    throw new Error("Participante não encontrado.");
+  }
+
+  const admin = createAdminClient();
+
+  // game_charges uses RESTRICT for player_id, so remove those rows first.
+  const { error: chargesError } = await admin
+    .from("game_charges")
+    .delete()
+    .eq("organization_id", organization.id)
+    .eq("player_id", participant.id);
+
+  if (chargesError) {
+    throw new Error("Não foi possível remover as cobranças vinculadas ao participante.");
+  }
+
+  const { error: playerDeleteError } = await admin
+    .from("players")
+    .delete()
+    .eq("id", participant.id)
+    .eq("organization_id", organization.id);
+
+  if (playerDeleteError) {
+    throw new Error("Não foi possível excluir o participante.");
+  }
+
+  if (participant.user_id) {
+    const [{ data: otherPlayers }, { data: memberships }] = await Promise.all([
+      admin
+        .from("players")
+        .select("id")
+        .eq("user_id", participant.user_id)
+        .limit(1),
+      admin
+        .from("organization_members")
+        .select("id")
+        .eq("user_id", participant.user_id)
+        .limit(1),
+    ]);
+
+    const stillUsed =
+      Boolean(otherPlayers?.length) ||
+      Boolean(memberships?.length);
+
+    if (!stillUsed) {
+      await admin.auth.admin.deleteUser(participant.user_id);
+    }
+  }
+
+  revalidatePath("/participantes");
+  revalidatePath("/dashboard");
+  revalidatePath("/financeiro");
+  revalidatePath("/jogos");
+
+  redirect("/participantes");
 }
