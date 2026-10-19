@@ -32,6 +32,7 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     { data: historyData, error: historyError },
     { data: paymentsData, error: paymentsError },
     { data: rosterData, error: rosterError },
+    { data: defaultPositionData, error: defaultPositionError },
   ] = await Promise.all([
     supabase.rpc("get_my_player_portal"),
     supabase.rpc("get_my_player_games"),
@@ -42,6 +43,7 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     supabase.rpc("get_my_player_game_history"),
     supabase.rpc("get_my_game_payment_transparency"),
     supabase.rpc("get_my_confirmed_game_roster"),
+    supabase.rpc("get_my_player_default_position"),
   ]);
 
   if (
@@ -54,6 +56,7 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     historyError ||
     paymentsError ||
     rosterError ||
+    defaultPositionError ||
     !portalData?.[0]?.available
   ) {
     throw new Error("Não foi possível carregar sua área de participante.");
@@ -69,5 +72,6 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     gameHistory: (historyData ?? []) as PlayerGameHistoryEntry[],
     gamePayments: (paymentsData ?? []) as PlayerGamePaymentEntry[],
     confirmedRoster: (rosterData ?? []) as PlayerConfirmedRosterEntry[],
+    defaultPosition: (defaultPositionData as PlayerAccountData["defaultPosition"]) ?? null,
   };
 }
