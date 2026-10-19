@@ -1,11 +1,13 @@
 "use server";
 
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type AdminInviteActionState = {
   ok: boolean;
   message?: string;
+  temporaryPassword?: string;
+  email?: string;
   fieldErrors?: Record<string, string[] | undefined>;
 };
 
@@ -13,12 +15,11 @@ const schema = z.object({
   token: z.string().min(20),
   email: z.string().trim().email(),
   name: z.string().trim().min(2, "Informe seu nome."),
-  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.").max(128),
-  origin: z.string().trim().url().optional().or(z.literal("")),
 });
 
-function getAppOrigin(requestOrigin?: string) {
-  return (process.env.NEXT_PUBLIC_APP_URL || requestOrigin || "").replace(/\/$/, "");
+function generateTemporaryPassword() {
+  const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 8);
+  return `Fut@${suffix}9A`;
 }
 
 export async function acceptAdminInvite(
@@ -29,8 +30,6 @@ export async function acceptAdminInvite(
     token: formData.get("token"),
     email: formData.get("email"),
     name: formData.get("name"),
-    password: formData.get("password"),
-    origin: formData.get("origin") || "",
   });
 
   if (!parsed.success) {
@@ -41,39 +40,139 @@ export async function acceptAdminInvite(
     };
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: {
-      emailRedirectTo: `${getAppOrigin(parsed.data.origin)}/auth/callback`,
-      data: {
-        account_type: "admin",
-        admin_invite_token: parsed.data.token,
-        name: parsed.data.name,
-      },
-    },
-  });
+  try {
+    const admin = createAdminClient();
+    const normalizedEmail = parsed.data.email.toLowerCase();
 
-  if (error) {
-    const message = error.message.toLowerCase();
-    if (message.includes("already") || message.includes("registered") || message.includes("exists")) {
+    const { data: invite, error: inviteError } = await admin
+      .from("admin_invites")
+      .select("id,organization_id,email,active,expires_at,accepted_at")
+      .eq("token", parsed.data.token)
+      .maybeSingle();
+
+    if (
+      inviteError ||
+      !invite ||
+      !invite.active ||
+      invite.accepted_at ||
+      new Date(invite.expires_at).getTime() <= Date.now() ||
+      invite.email.toLowerCase() !== normalizedEmail
+    ) {
       return {
         ok: false,
-        message: "Este e-mail já possui uma conta. Solicite outro convite com um e-mail diferente.",
+        message: "Este convite não está mais disponível. Solicite um novo convite.",
       };
     }
 
+    const temporaryPassword = generateTemporaryPassword();
+
+    const { data: existingUsers, error: listUsersError } =
+      await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+
+    if (listUsersError) {
+      return {
+        ok: false,
+        message: "Não foi possível validar o acesso. Tente novamente.",
+      };
+    }
+
+    const existingUser = existingUsers.users.find(
+      (user) => user.email?.toLowerCase() === normalizedEmail
+    );
+
+    let userId: string;
+
+    if (existingUser) {
+      userId = existingUser.id;
+
+      const { error: updateUserError } =
+        await admin.auth.admin.updateUserById(userId, {
+          password: temporaryPassword,
+          email_confirm: true,
+          user_metadata: {
+            ...(existingUser.user_metadata ?? {}),
+            account_type: "admin",
+            name: parsed.data.name,
+            must_change_password: true,
+          },
+        });
+
+      if (updateUserError) {
+        return {
+          ok: false,
+          message: "Não foi possível preparar o acesso do administrador.",
+        };
+      }
+
+      await admin
+        .from("profiles")
+        .upsert({
+          id: userId,
+          name: parsed.data.name,
+          email: normalizedEmail,
+        });
+
+      const { error: membershipError } = await admin
+        .from("organization_members")
+        .upsert(
+          {
+            organization_id: invite.organization_id,
+            user_id: userId,
+            role: "admin",
+          },
+          { onConflict: "organization_id,user_id" }
+        );
+
+      if (membershipError) {
+        return {
+          ok: false,
+          message: "A conta foi preparada, mas não foi possível vincular a organização.",
+        };
+      }
+
+      await admin
+        .from("admin_invites")
+        .update({
+          active: false,
+          accepted_at: new Date().toISOString(),
+          accepted_user_id: userId,
+        })
+        .eq("id", invite.id);
+    } else {
+      const { data: createdUser, error: createUserError } =
+        await admin.auth.admin.createUser({
+          email: normalizedEmail,
+          password: temporaryPassword,
+          email_confirm: true,
+          user_metadata: {
+            account_type: "admin",
+            admin_invite_token: parsed.data.token,
+            name: parsed.data.name,
+            must_change_password: true,
+          },
+        });
+
+      if (createUserError || !createdUser.user) {
+        return {
+          ok: false,
+          message: "Não foi possível criar a conta de administrador.",
+        };
+      }
+
+      userId = createdUser.user.id;
+    }
+
+    return {
+      ok: true,
+      message:
+        "Acesso criado. Use a senha temporária abaixo. No primeiro login será obrigatório criar uma nova senha.",
+      temporaryPassword,
+      email: normalizedEmail,
+    };
+  } catch {
     return {
       ok: false,
-      message: "Não foi possível criar a conta de administrador. Solicite um novo convite.",
+      message: "Não foi possível criar o acesso de administrador.",
     };
   }
-
-  return {
-    ok: true,
-    message: data.session
-      ? "Conta criada. Você já pode acessar o painel."
-      : "Conta criada. Confira seu e-mail para confirmar o acesso e depois faça login.",
-  };
 }
