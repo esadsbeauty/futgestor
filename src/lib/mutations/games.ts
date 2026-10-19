@@ -184,117 +184,82 @@ export async function drawPublicGameTeams(formData: FormData) {
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  const [
-    { data: game },
-    { data: guests },
-    { data: attendances },
-  ] = await Promise.all([
-    supabase
-      .from("games")
-      .select("id")
-      .eq("id", gameId)
-      .eq("organization_id", organization.id)
-      .maybeSingle(),
-    supabase
-      .from("game_guest_confirmations")
-      .select("id,position,sport_type,player_id")
-      .eq("game_id", gameId)
-      .eq("attendance_status", "confirmed")
-      .eq("organization_id", organization.id),
-    supabase
-      .from("game_attendances")
-      .select("id,player_id,position,sport_type")
-      .eq("game_id", gameId)
-      .eq("status", "confirmed")
-      .eq("organization_id", organization.id),
-  ]);
+  const { data: roster, error } = await supabase
+    .from("game_players")
+    .select("id,source,guest_confirmation_id,player_id,position,sport_type")
+    .eq("organization_id", organization.id)
+    .eq("game_id", gameId)
+    .eq("attendance_status", "confirmed");
 
-  if (!game) {
+  if (error || !roster?.length) {
     revalidatePath(`/jogos/${gameId}`);
     return;
   }
 
-  const linkedGuestPlayers = new Set(
-    (guests ?? [])
-      .filter((player) => player.player_id)
-      .map((player) => player.player_id as string)
-  );
+  const eligible = roster.filter((player) => player.position && player.sport_type);
+  const groups = new Map<string, typeof eligible>();
 
-  const roster = [
-    ...(guests ?? []).map((player) => ({
-      source: "guest" as const,
-      id: player.id,
-      position: player.position,
-      sport_type: player.sport_type,
-    })),
-    ...(attendances ?? [])
-      .filter((player) => !linkedGuestPlayers.has(player.player_id))
-      .map((player) => ({
-        source: "participant" as const,
-        id: player.id,
-        position: player.position,
-        sport_type: player.sport_type,
-      })),
-  ].filter((player) => player.position && player.sport_type);
-
-  if (!roster.length) {
-    revalidatePath(`/jogos/${gameId}`);
-    return;
-  }
-
-  const groups = new Map<string, typeof roster>();
-  for (const player of roster) {
+  for (const player of eligible) {
     const key = `${player.sport_type}:${player.position}`;
     const list = groups.get(key) ?? [];
     list.push(player);
     groups.set(key, list);
   }
 
-  const assignments: { source: "guest" | "participant"; id: string; team: number }[] = [];
+  const assignments: { id: string; team: number; source: string; guestId: string | null; playerId: string | null }[] = [];
   let nextTeam = 1;
 
   for (const group of groups.values()) {
     const shuffled = [...group].sort(() => Math.random() - 0.5);
     for (const player of shuffled) {
-      assignments.push({ source: player.source, id: player.id, team: nextTeam });
+      assignments.push({
+        id: player.id,
+        team: nextTeam,
+        source: player.source,
+        guestId: player.guest_confirmation_id,
+        playerId: player.player_id,
+      });
       nextTeam = nextTeam === 1 ? 2 : 1;
     }
   }
 
-  await Promise.all([
-    supabase
-      .from("game_guest_confirmations")
-      .update({ team_number: null, updated_at: new Date().toISOString() })
-      .eq("game_id", gameId)
-      .eq("organization_id", organization.id),
-    supabase
-      .from("game_attendances")
-      .update({ team_number: null, updated_at: new Date().toISOString() })
-      .eq("game_id", gameId)
-      .eq("organization_id", organization.id),
-  ]);
+  await supabase
+    .from("game_players")
+    .update({ team_number: null, updated_at: new Date().toISOString() })
+    .eq("organization_id", organization.id)
+    .eq("game_id", gameId);
 
   await Promise.all(
-    assignments.map(({ source, id, team }) =>
-      source === "guest"
-        ? supabase
-            .from("game_guest_confirmations")
-            .update({ team_number: team, updated_at: new Date().toISOString() })
-            .eq("id", id)
-            .eq("organization_id", organization.id)
-            .eq("game_id", gameId)
-        : supabase
-            .from("game_attendances")
-            .update({ team_number: team, updated_at: new Date().toISOString() })
-            .eq("id", id)
-            .eq("organization_id", organization.id)
-            .eq("game_id", gameId)
-    )
+    assignments.map(async ({ id, team, source, guestId, playerId }) => {
+      await supabase
+        .from("game_players")
+        .update({ team_number: team, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("organization_id", organization.id)
+        .eq("game_id", gameId);
+
+      if (source === "guest" && guestId) {
+        await supabase
+          .from("game_guest_confirmations")
+          .update({ team_number: team, updated_at: new Date().toISOString() })
+          .eq("id", guestId)
+          .eq("organization_id", organization.id)
+          .eq("game_id", gameId);
+      }
+
+      if (source === "participant" && playerId) {
+        await supabase
+          .from("game_attendances")
+          .update({ team_number: team, updated_at: new Date().toISOString() })
+          .eq("player_id", playerId)
+          .eq("organization_id", organization.id)
+          .eq("game_id", gameId);
+      }
+    })
   );
 
   revalidatePath(`/jogos/${gameId}`);
 }
-
 export async function updatePublicGameConfirmation(
   _: GameActionState,
   formData: FormData
@@ -695,4 +660,32 @@ export async function markPublicGameGuestPaid(formData: FormData) {
   revalidatePath("/jogos");
   revalidatePath("/financeiro");
   revalidatePath("/dashboard");
+}
+
+
+export async function markGameRosterPlayerPaid(formData: FormData) {
+  const rosterId = String(formData.get("roster_id") ?? "");
+  const gameId = String(formData.get("game_id") ?? "");
+  if (!rosterId || !gameId) return;
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const { data: roster } = await supabase
+    .from("game_players")
+    .select("id")
+    .eq("id", rosterId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id)
+    .eq("attendance_status", "confirmed")
+    .maybeSingle();
+
+  if (!roster) return;
+
+  await supabase.rpc("mark_game_player_paid", { _game_player: roster.id });
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/financeiro");
+  revalidatePath("/dashboard");
+  revalidatePath("/meu-grupo");
 }
