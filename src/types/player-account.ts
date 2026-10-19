@@ -29,6 +29,9 @@ export type PlayerAccountGame = {
   status: string;
   attendance_status: GameAttendanceStatus;
   attendance_locked: boolean;
+  game_format: "court" | "field";
+  attendance_position: import("@/types/games").GuestPosition | null;
+  default_position: import("@/types/games").GuestPosition | null;
 };
 
 export type PlayerAccountFinance = {
