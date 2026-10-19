@@ -27,6 +27,7 @@ export type Participant = {
   joined_at: string;
   status: PlayerState;
   billing_type: PlayerBillingType;
+  default_position: import("@/types/games").GuestPosition | null;
   notes: string | null;
   created_at: string;
 };
