@@ -14,6 +14,18 @@ export const financialSettingsSchema = z.object({
 
 export const profileSettingsSchema = z.object({
   name: z.string().trim().min(2, "Informe um nome com pelo menos 2 caracteres.").max(100, "O nome é muito longo."),
+  default_position: z.enum([
+    "goalkeeper",
+    "fixed",
+    "winger",
+    "pivot",
+    "full_back",
+    "center_back",
+    "defensive_mid",
+    "midfielder",
+    "striker",
+    "other",
+  ]).nullable(),
 });
 
 export const passwordSettingsSchema = z.object({
