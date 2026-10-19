@@ -22,6 +22,52 @@ function generateTemporaryPassword() {
   return `Fut@${suffix}9A`;
 }
 
+async function ensureAdminParticipant(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  userId: string,
+  name: string
+) {
+  const { data: existingPlayer } = await admin
+    .from("players")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existingPlayer) return;
+
+  const { data: organization, error: organizationError } = await admin
+    .from("organizations")
+    .select("default_monthly_fee,default_due_day,billing_mode")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  if (organizationError || !organization) {
+    throw new Error("Não foi possível carregar os dados do grupo.");
+  }
+
+  const billingType =
+    organization.billing_mode === "monthly" ? "monthly" : "per_game";
+
+  const { error: playerError } = await admin.from("players").insert({
+    organization_id: organizationId,
+    user_id: userId,
+    name,
+    phone: null,
+    monthly_fee: organization.default_monthly_fee,
+    due_day: organization.default_due_day,
+    joined_at: new Date().toISOString().slice(0, 10),
+    status: "active",
+    billing_type: billingType,
+    notes: "Perfil de participante criado automaticamente para administrador.",
+  });
+
+  if (playerError) {
+    throw new Error("Não foi possível criar o perfil de participante do administrador.");
+  }
+}
+
 export async function acceptAdminInvite(
   _: AdminInviteActionState,
   formData: FormData
@@ -162,10 +208,17 @@ export async function acceptAdminInvite(
       userId = createdUser.user.id;
     }
 
+    await ensureAdminParticipant(
+      admin,
+      invite.organization_id,
+      userId,
+      parsed.data.name
+    );
+
     return {
       ok: true,
       message:
-        "Acesso criado. Use a senha temporária abaixo. No primeiro login será obrigatório criar uma nova senha.",
+        "Acesso criado. O administrador também foi adicionado como participante. Use a senha temporária abaixo. No primeiro login será obrigatório criar uma nova senha.",
       temporaryPassword,
       email: normalizedEmail,
     };
