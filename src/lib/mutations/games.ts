@@ -16,8 +16,10 @@ export async function createGame(_:GameActionState,f:FormData):Promise<GameActio
 export async function respondOwnGameAttendance(formData: FormData) {
   const gameId = String(formData.get("game_id") ?? "");
   const status = String(formData.get("status") ?? "");
+  const position = String(formData.get("position") ?? "");
 
   if (!gameId || !["confirmed", "declined"].includes(status)) return;
+  if (status === "confirmed" && !position) return;
 
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
@@ -34,6 +36,7 @@ export async function respondOwnGameAttendance(formData: FormData) {
   const { error } = await supabase.rpc("respond_my_game_attendance", {
     _game_id: gameId,
     _status: status,
+    _position: status === "confirmed" ? position : null,
   });
 
   if (error) return;
@@ -181,7 +184,11 @@ export async function drawPublicGameTeams(formData: FormData) {
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  const [{ data: game }, { data: confirmations }] = await Promise.all([
+  const [
+    { data: game },
+    { data: guests },
+    { data: attendances },
+  ] = await Promise.all([
     supabase
       .from("games")
       .select("id")
@@ -190,50 +197,103 @@ export async function drawPublicGameTeams(formData: FormData) {
       .maybeSingle(),
     supabase
       .from("game_guest_confirmations")
-      .select("id,position,sport_type")
+      .select("id,position,sport_type,player_id")
       .eq("game_id", gameId)
       .eq("attendance_status", "confirmed")
       .eq("organization_id", organization.id),
+    supabase
+      .from("game_attendances")
+      .select("id,player_id,position,sport_type")
+      .eq("game_id", gameId)
+      .eq("status", "confirmed")
+      .eq("organization_id", organization.id),
   ]);
 
-  if (!game || !confirmations?.length) {
+  if (!game) {
     revalidatePath(`/jogos/${gameId}`);
     return;
   }
 
-  const groups = new Map<string, { id: string; position: string; sport_type: string }[]>();
-  for (const player of confirmations) {
+  const linkedGuestPlayers = new Set(
+    (guests ?? [])
+      .filter((player) => player.player_id)
+      .map((player) => player.player_id as string)
+  );
+
+  const roster = [
+    ...(guests ?? []).map((player) => ({
+      source: "guest" as const,
+      id: player.id,
+      position: player.position,
+      sport_type: player.sport_type,
+    })),
+    ...(attendances ?? [])
+      .filter((player) => !linkedGuestPlayers.has(player.player_id))
+      .map((player) => ({
+        source: "participant" as const,
+        id: player.id,
+        position: player.position,
+        sport_type: player.sport_type,
+      })),
+  ].filter((player) => player.position && player.sport_type);
+
+  if (!roster.length) {
+    revalidatePath(`/jogos/${gameId}`);
+    return;
+  }
+
+  const groups = new Map<string, typeof roster>();
+  for (const player of roster) {
     const key = `${player.sport_type}:${player.position}`;
     const list = groups.get(key) ?? [];
     list.push(player);
     groups.set(key, list);
   }
 
-  const assignments: { id: string; team: number }[] = [];
+  const assignments: { source: "guest" | "participant"; id: string; team: number }[] = [];
   let nextTeam = 1;
 
   for (const group of groups.values()) {
     const shuffled = [...group].sort(() => Math.random() - 0.5);
     for (const player of shuffled) {
-      assignments.push({ id: player.id, team: nextTeam });
+      assignments.push({ source: player.source, id: player.id, team: nextTeam });
       nextTeam = nextTeam === 1 ? 2 : 1;
     }
   }
 
+  await Promise.all([
+    supabase
+      .from("game_guest_confirmations")
+      .update({ team_number: null, updated_at: new Date().toISOString() })
+      .eq("game_id", gameId)
+      .eq("organization_id", organization.id),
+    supabase
+      .from("game_attendances")
+      .update({ team_number: null, updated_at: new Date().toISOString() })
+      .eq("game_id", gameId)
+      .eq("organization_id", organization.id),
+  ]);
+
   await Promise.all(
-    assignments.map(({ id, team }) =>
-      supabase
-        .from("game_guest_confirmations")
-        .update({ team_number: team, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("organization_id", organization.id)
-        .eq("game_id", gameId)
+    assignments.map(({ source, id, team }) =>
+      source === "guest"
+        ? supabase
+            .from("game_guest_confirmations")
+            .update({ team_number: team, updated_at: new Date().toISOString() })
+            .eq("id", id)
+            .eq("organization_id", organization.id)
+            .eq("game_id", gameId)
+        : supabase
+            .from("game_attendances")
+            .update({ team_number: team, updated_at: new Date().toISOString() })
+            .eq("id", id)
+            .eq("organization_id", organization.id)
+            .eq("game_id", gameId)
     )
   );
 
   revalidatePath(`/jogos/${gameId}`);
 }
-
 
 export async function updatePublicGameConfirmation(
   _: GameActionState,
@@ -262,7 +322,7 @@ export async function updatePublicGameConfirmation(
 
   const { data: confirmation, error: lookupError } = await supabase
     .from("game_guest_confirmations")
-    .select("id,payment_status")
+    .select("id,payment_status,player_id")
     .eq("id", confirmationId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id)
@@ -302,6 +362,14 @@ export async function updatePublicGameConfirmation(
     .eq("organization_id", organization.id);
 
   if (error) return fail("Não foi possível atualizar o jogador.");
+
+  if (confirmation.player_id && parsed.data.attendance_status === "confirmed" && parsed.data.position) {
+    await supabase
+      .from("players")
+      .update({ default_position: parsed.data.position })
+      .eq("id", confirmation.player_id)
+      .eq("organization_id", organization.id);
+  }
 
   await supabase
     .from("game_guest_confirmations")
@@ -422,7 +490,7 @@ export async function promoteGameGuestToParticipant(
 
   const { data: guest, error: guestError } = await supabase
     .from("game_guest_confirmations")
-    .select("id,name,attendance_status,player_id")
+    .select("id,name,attendance_status,player_id,position")
     .eq("id", confirmationId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id)
