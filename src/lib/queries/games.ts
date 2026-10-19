@@ -10,6 +10,7 @@ import type {
   GameExpense,
   GameEvent,
   GameGuestConfirmation,
+  GameRosterPlayer,
   PublicGameInviteResponse,
   GameWithSummary,
 } from "@/types/games";
@@ -218,7 +219,7 @@ export async function getGameAttendanceSummary(
   ] = await Promise.all([
     s
       .from("players")
-      .select("id,name,user_id")
+      .select("id,name,user_id,default_position")
       .eq("organization_id", org)
       .eq("status", "active")
       .order("name"),
@@ -226,7 +227,7 @@ export async function getGameAttendanceSummary(
     s
       .from("game_attendances")
       .select(
-        "player_id,status,responded_at"
+        "player_id,status,responded_at,position,team_number"
       )
       .eq("organization_id", org)
       .eq("game_id", game),
@@ -262,6 +263,9 @@ export async function getGameAttendanceSummary(
       responded_at:
         response?.responded_at ?? null,
       is_current_user: player.user_id === currentUser?.id,
+      position: (response?.position as GameAttendancePlayer["position"]) ?? null,
+      default_position: (player.default_position as GameAttendancePlayer["default_position"]) ?? null,
+      team_number: response?.team_number ?? null,
     };
   });
 
@@ -339,6 +343,85 @@ export async function getGameGuestConfirmations(
   }
 
   return (data ?? []) as GameGuestConfirmation[];
+}
+
+export async function getGameRosterPlayers(
+  org: string,
+  game: string
+): Promise<GameRosterPlayer[]> {
+  const supabase = await createClient();
+
+  const [
+    { data: guests, error: guestsError },
+    { data: attendances, error: attendancesError },
+    { data: players, error: playersError },
+    { data: charges },
+  ] = await Promise.all([
+    supabase
+      .from("game_guest_confirmations")
+      .select("*")
+      .eq("organization_id", org)
+      .eq("game_id", game),
+    supabase
+      .from("game_attendances")
+      .select("id,organization_id,game_id,player_id,status,sport_type,position,team_number,responded_at,created_at,updated_at")
+      .eq("organization_id", org)
+      .eq("game_id", game),
+    supabase
+      .from("players")
+      .select("id,name")
+      .eq("organization_id", org),
+    supabase
+      .from("game_charges")
+      .select("player_id,status,paid_at,transaction_id")
+      .eq("organization_id", org)
+      .eq("game_id", game),
+  ]);
+
+  if (guestsError || attendancesError || playersError) {
+    throw new Error("Não foi possível carregar os jogadores confirmados.");
+  }
+
+  const playerNames = new Map((players ?? []).map((player) => [player.id, player.name]));
+  const chargeByPlayer = new Map((charges ?? []).map((charge) => [charge.player_id, charge]));
+
+  const guestRows: GameRosterPlayer[] = ((guests ?? []) as GameGuestConfirmation[]).map((guest) => ({
+    ...guest,
+    source: "guest",
+  }));
+
+  const guestLinkedPlayers = new Set(
+    guestRows
+      .filter((guest) => guest.player_id)
+      .map((guest) => guest.player_id as string)
+  );
+
+  const attendanceRows: GameRosterPlayer[] = (attendances ?? [])
+    .filter((attendance) => !guestLinkedPlayers.has(attendance.player_id))
+    .map((attendance) => {
+      const charge = chargeByPlayer.get(attendance.player_id);
+      return {
+        id: attendance.id,
+        source: "participant",
+        organization_id: attendance.organization_id,
+        game_id: attendance.game_id,
+        name: playerNames.get(attendance.player_id) ?? "Participante",
+        attendance_status: attendance.status as "confirmed" | "declined",
+        sport_type: attendance.sport_type as GameRosterPlayer["sport_type"],
+        position: attendance.position as GameRosterPlayer["position"],
+        team_number: attendance.team_number,
+        player_id: attendance.player_id,
+        payment_status: charge?.status === "paid" ? "paid" : "pending",
+        paid_at: charge?.paid_at ?? null,
+        payment_transaction_id: charge?.transaction_id ?? null,
+        created_at: attendance.created_at,
+        updated_at: attendance.updated_at,
+      };
+    });
+
+  return [...guestRows, ...attendanceRows].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at)
+  );
 }
 
 export async function getPublicGameInvite(token: string) {
