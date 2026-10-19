@@ -214,10 +214,11 @@ export async function getGameAttendanceSummary(
   const [
     { data: players, error: playersError },
     { data: attendances, error: attendancesError },
+    { data: { user: currentUser } },
   ] = await Promise.all([
     s
       .from("players")
-      .select("id,name")
+      .select("id,name,user_id")
       .eq("organization_id", org)
       .eq("status", "active")
       .order("name"),
@@ -229,6 +230,8 @@ export async function getGameAttendanceSummary(
       )
       .eq("organization_id", org)
       .eq("game_id", game),
+
+    s.auth.getUser(),
   ]);
 
   if (playersError || attendancesError) {
@@ -258,6 +261,7 @@ export async function getGameAttendanceSummary(
           | "declined") ?? "pending",
       responded_at:
         response?.responded_at ?? null,
+      is_current_user: player.user_id === currentUser?.id,
     };
   });
 
