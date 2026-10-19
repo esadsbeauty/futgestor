@@ -126,7 +126,7 @@ function AttendanceButtons({ game }: { game: PlayerAccountGame }) {
           <input type="hidden" name="game_id" value={game.game_id} />
           <input type="hidden" name="status" value="confirmed" />
           <button
-            disabled={pending || status === "confirmed"}
+            disabled={pending}
             className="focus-ring min-h-11 w-full rounded-xl bg-[var(--success)] px-4 text-sm font-bold text-[#02150d] disabled:opacity-40"
           >
             {pending ? "Salvando..." : "Vou jogar"}
