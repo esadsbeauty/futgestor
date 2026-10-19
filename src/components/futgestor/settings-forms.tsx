@@ -2,7 +2,7 @@
 
 import { Building2, CircleDollarSign, Clipboard, LockKeyhole, LogOut, ShieldCheck, Trash2, UserRound, UsersRound } from "lucide-react";
 import { useActionState, useState } from "react";
-import { createAdminInvite, deactivateAdminInvite, logout, removeOrganizationAdmin, updateBillingMode, updateFinancialSettings, updateFinancialTransparency, updateOrganizationSettings, updatePassword, updateProfile, type SettingsActionState } from "@/lib/mutations/settings";
+import { createAdminInvite, deactivateAdminInvite, logout, removeOrganizationAdmin, resetAdminTemporaryAccess, updateBillingMode, updateFinancialSettings, updateFinancialTransparency, updateOrganizationSettings, updatePassword, updateProfile, type SettingsActionState } from "@/lib/mutations/settings";
 import { ActionToast } from "@/components/ui/action-toast";
 import { SettingsSection } from "@/components/futgestor/settings-section";
 import type { AdminInvite, OrganizationAdmin, SettingsData } from "@/types/settings";
@@ -75,6 +75,72 @@ function CopyAdminInviteButton({ url }: { url: string }) {
   return <button type="button" onClick={copy} className="focus-ring inline-flex min-h-9 items-center gap-2 rounded-xl border border-[var(--border)] bg-white/[.03] px-3 text-xs font-bold text-[var(--brand)]"><Clipboard size={14}/>{copied ? "Copiado!" : "Copiar link"}</button>;
 }
 
+
+function ResetAdminAccess({
+  memberId,
+  email,
+}: {
+  memberId: string;
+  email: string | null;
+}) {
+  const [state, action, pending] = useActionState(
+    resetAdminTemporaryAccess,
+    initialState
+  );
+  const [copied, setCopied] = useState(false);
+
+  async function copyPassword() {
+    if (!state.temporaryPassword) return;
+    await navigator.clipboard.writeText(state.temporaryPassword);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
+    <div className="mt-3">
+      <form action={action}>
+        <input type="hidden" name="member_id" value={memberId} />
+        <button
+          disabled={pending}
+          className="focus-ring min-h-9 rounded-xl border border-[var(--border)] bg-white/[.03] px-3 text-xs font-bold text-[var(--brand)] disabled:opacity-60"
+        >
+          {pending ? "Gerando..." : "Gerar senha temporária"}
+        </button>
+      </form>
+
+      {state.message && !state.ok ? (
+        <p className="mt-2 text-xs text-[var(--danger)]">{state.message}</p>
+      ) : null}
+
+      {state.ok && state.temporaryPassword ? (
+        <div className="mt-3 rounded-xl border border-[var(--success)]/20 bg-[var(--success)]/5 p-3">
+          <p className="text-xs font-bold text-[var(--success)]">
+            Acesso temporário criado
+          </p>
+          <p className="mt-2 break-all text-xs text-[var(--muted)]">
+            E-mail: {state.temporaryEmail ?? email ?? "—"}
+          </p>
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-black/20 px-3 py-2">
+            <code className="text-sm font-black text-white">
+              {state.temporaryPassword}
+            </code>
+            <button
+              type="button"
+              onClick={copyPassword}
+              className="focus-ring rounded-lg px-2 py-1 text-xs font-bold text-[var(--brand)]"
+            >
+              {copied ? "Copiado!" : "Copiar"}
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">
+            No primeiro login, o administrador será direcionado para criar uma nova senha.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AdministratorsForm({
   admins,
   invites,
@@ -89,7 +155,7 @@ function AdministratorsForm({
   return <div className="space-y-6">
     <div className="space-y-3">
       {owner ? <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--brand)]/10 text-[var(--brand)]"><ShieldCheck size={18}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{owner.name}</p><p className="mt-0.5 truncate text-xs text-[var(--muted)]">{owner.email ?? "Sem e-mail"} · Proprietário</p></div></div> : null}
-      {administratorList.map((admin) => <div key={admin.member_id} className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[.04] text-[var(--muted)]"><UserRound size={18}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{admin.name}</p><p className="mt-0.5 truncate text-xs text-[var(--muted)]">{admin.email ?? "Sem e-mail"} · Administrador</p></div><form action={removeOrganizationAdmin}><input type="hidden" name="member_id" value={admin.member_id}/><button className="focus-ring grid size-9 place-items-center rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 text-[var(--danger)]" aria-label={`Remover ${admin.name} dos administradores`}><Trash2 size={15}/></button></form></div>)}
+      {administratorList.map((admin) => <div key={admin.member_id} className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[.04] text-[var(--muted)]"><UserRound size={18}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{admin.name}</p><p className="mt-0.5 truncate text-xs text-[var(--muted)]">{admin.email ?? "Sem e-mail"} · Administrador</p><ResetAdminAccess memberId={admin.member_id} email={admin.email}/></div><form action={removeOrganizationAdmin}><input type="hidden" name="member_id" value={admin.member_id}/><button className="focus-ring grid size-9 place-items-center rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 text-[var(--danger)]" aria-label={`Remover ${admin.name} dos administradores`}><Trash2 size={15}/></button></form></div>)}
       {administratorList.length === 0 ? <p className="rounded-xl bg-white/[.04] p-3 text-sm text-[var(--muted)]">Nenhum administrador adicional cadastrado.</p> : null}
     </div>
 
