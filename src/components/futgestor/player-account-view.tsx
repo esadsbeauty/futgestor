@@ -33,9 +33,11 @@ type PlayerTab = "home" | "games" | "ranking" | "finance" | "profile";
 
 function GameCard({
   game,
+  roster,
   featured = false,
 }: {
   game: PlayerAccountGame;
+  roster: PlayerConfirmedRosterEntry[];
   featured?: boolean;
 }) {
   return (
@@ -71,7 +73,7 @@ function GameCard({
         </p>
       </div>
 
-      <AttendanceButtons game={game} />
+      <PlayerGameAttendance game={game} roster={roster} />
     </article>
   );
 }
@@ -155,6 +157,8 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
     goalRanking,
     gameHistory,
     gamePayments,
+    confirmedRoster,
+    defaultPosition,
   } = data;
 
   const [tab, setTab] = useState<PlayerTab>("home");
@@ -197,6 +201,7 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
     { id: "games", label: "Jogos", icon: CalendarDays },
     { id: "ranking", label: "Ranking", icon: Trophy },
     { id: "finance", label: "Financeiro", icon: CircleDollarSign },
+    { id: "profile", label: "Perfil", icon: UserRound },
   ];
 
   return (
@@ -227,7 +232,7 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
         <>
           <section className="mt-8">
             {games[0] ? (
-              <GameCard game={games[0]} featured />
+              <GameCard game={games[0]} roster={confirmedRoster.filter((entry) => entry.game_id === games[0].game_id)} featured />
             ) : (
               <div className="card px-5 py-10 text-center">
                 <CalendarDays className="mx-auto text-[var(--muted)]" />
@@ -326,7 +331,7 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
             <div className="mt-3 grid gap-4">
               {games.length ? (
                 games.map((game, index) => (
-                  <GameCard key={game.game_id} game={game} featured={index === 0} />
+                  <GameCard key={game.game_id} game={game} roster={confirmedRoster.filter((entry) => entry.game_id === game.game_id)} featured={index === 0} />
                 ))
               ) : (
                 <div className="card p-6 text-sm text-[var(--muted)]">
