@@ -505,10 +505,14 @@ export function PublicGameInviteCard({
     (typeof window !== "undefined" ? window.location.origin : "")
   }/confirmar-jogo/${game.public_invite_token}`;
 
+  const guests = confirmations.filter((player) => player.source === "guest");
   const confirmed = confirmations.filter(
     (player) => player.attendance_status === "confirmed"
   );
-  const declined = confirmations.filter(
+  const confirmedGuests = guests.filter(
+    (player) => player.attendance_status === "confirmed"
+  );
+  const declined = guests.filter(
     (player) => player.attendance_status === "declined"
   );
   const hasDraw = confirmed.some((player) => player.team_number);
@@ -561,7 +565,7 @@ export function PublicGameInviteCard({
           <div className="flex items-center gap-2 text-sm">
             <UsersRound size={17} className="text-[var(--brand)]" />
             <strong>{confirmed.length}</strong>
-            <span className="text-[var(--muted)]">confirmado(s)</span>
+            <span className="text-[var(--muted)]">no sorteio</span>
           </div>
 
           <form action={drawPublicGameTeams}>
@@ -577,9 +581,9 @@ export function PublicGameInviteCard({
         </div>
       </div>
 
-      {confirmed.length === 0 && declined.length === 0 ? (
+      {confirmedGuests.length === 0 && declined.length === 0 ? (
         <div className="card mt-4 p-8 text-center text-sm text-[var(--muted)]">
-          Ninguém respondeu por este link ainda.
+          Nenhum convidado respondeu por este link ainda.
         </div>
       ) : hasDraw ? (
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -645,9 +649,9 @@ export function PublicGameInviteCard({
         </div>
       ) : (
         <div className="card mt-4 p-4">
-          <h3 className="font-black">Confirmados</h3>
+          <h3 className="font-black">Convidados</h3>
           <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {confirmed.map((player) => (
+            {confirmedGuests.map((player) => (
               <PlayerRow key={player.id} player={player} gameId={game.id} billingMode={billingMode} />
             ))}
           </div>
