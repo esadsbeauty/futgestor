@@ -70,6 +70,7 @@ export type GameAttendancePlayer = {
   player_name: string;
   status: GameAttendanceStatus;
   responded_at: string | null;
+  is_current_user: boolean;
 };
 
 export type GameAttendanceSummary = {
