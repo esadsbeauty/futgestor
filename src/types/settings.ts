@@ -4,6 +4,7 @@ export type CurrentProfile = {
   id: string;
   name: string;
   email: string | null;
+  default_position: import("@/types/games").GuestPosition | null;
 };
 
 export type OrganizationAdmin = {
