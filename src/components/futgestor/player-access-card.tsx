@@ -25,6 +25,10 @@ export function PlayerAccessCard({
     regeneratePlayerAccess,
     initialState
   );
+  const [deactivateState, deactivateAction, deactivating] = useActionState(
+    deactivatePlayerAccess,
+    initialState
+  );
 
   const token = state.token ?? access?.token;
 
@@ -133,15 +137,21 @@ export function PlayerAccessCard({
         </form>
 
         {access ? (
-          <form action={deactivatePlayerAccess}>
+          <form action={deactivateAction}>
             <input type="hidden" name="player_id" value={playerId} />
-            <button className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--danger)]/20 px-4 font-semibold text-[var(--danger)]">
+            <button disabled={deactivating} className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--danger)]/20 px-4 font-semibold text-[var(--danger)] disabled:opacity-50">
               <ShieldOff size={17} />
-              Desativar link
+              {deactivating ? "Desativando..." : "Desativar link"}
             </button>
           </form>
         ) : null}
       </div>
+
+      {deactivateState.message ? (
+        <p className={`mt-4 text-sm ${deactivateState.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+          {deactivateState.message}
+        </p>
+      ) : null}
 
       {!token ? (
         <p className="mt-4 flex items-center gap-2 text-xs text-[var(--muted)]">
