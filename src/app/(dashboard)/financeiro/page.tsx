@@ -8,6 +8,7 @@ import { GameFinanceOverview } from "@/components/futgestor/game-finance-overvie
 import { usesMonthlyBilling } from "@/lib/billing";
 import { getCurrentBalanceTransactions, getFinancialOverview, getMonthlyBills, getMonthlyFees, getMonthlyGameFinancialOverview, getMonthlyTransactions } from "@/lib/queries/finance";
 import { currentReferenceMonth, ensureCurrentMonthFees, getCurrentOrganizationForUser } from "@/lib/queries/participants";
+import { bahiaDateString } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
