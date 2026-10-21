@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { respondOwnGameAttendance } from "@/lib/mutations/games";
+import { useActionState, useState } from "react";
+import { respondOwnGameAttendance, type GameActionState } from "@/lib/mutations/games";
 import type { GameAttendancePlayer, GameFormat, GuestPosition } from "@/types/games";
 
 const futsalPositions: Array<[GuestPosition, string]> = [
@@ -23,6 +23,8 @@ const footballPositions: Array<[GuestPosition, string]> = [
   ["other", "Outra"],
 ];
 
+const initialState: GameActionState = { ok: false };
+
 const positionLabels = Object.fromEntries(
   [...futsalPositions, ...footballPositions]
 ) as Record<GuestPosition, string>;
@@ -37,6 +39,7 @@ export function OwnGameAttendanceCard({
   player: GameAttendancePlayer;
 }) {
   const [choosing, setChoosing] = useState(false);
+  const [state, action, pending] = useActionState(respondOwnGameAttendance, initialState);
   const defaultPosition = player.position ?? player.default_position ?? "";
   const positions = gameFormat === "field" ? footballPositions : futsalPositions;
 
@@ -68,11 +71,12 @@ export function OwnGameAttendanceCard({
               Vou jogar
             </button>
 
-            <form action={respondOwnGameAttendance}>
+            <form action={action}>
               <input type="hidden" name="game_id" value={gameId} />
               <input type="hidden" name="status" value="declined" />
               <button
-                className={`rounded-xl px-4 py-2.5 text-sm font-bold ${
+                disabled={pending}
+                className={`rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50 ${
                   player.status === "declined"
                     ? "bg-[var(--danger)] text-white"
                     : "border border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)]"
@@ -85,8 +89,14 @@ export function OwnGameAttendanceCard({
         ) : null}
       </div>
 
+      {state.message ? (
+        <p className={`mt-3 text-sm ${state.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+          {state.message}
+        </p>
+      ) : null}
+
       {choosing ? (
-        <form action={respondOwnGameAttendance} className="mt-4 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4">
+        <form action={action} className="mt-4 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4">
           <input type="hidden" name="game_id" value={gameId} />
           <input type="hidden" name="status" value="confirmed" />
 
@@ -110,8 +120,8 @@ export function OwnGameAttendanceCard({
           </p>
 
           <div className="mt-4 flex gap-2">
-            <button className="rounded-xl bg-[var(--success)] px-4 py-2.5 text-sm font-bold text-[#02150d]">
-              Confirmar presença
+            <button disabled={pending} className="rounded-xl bg-[var(--success)] px-4 py-2.5 text-sm font-bold text-[#02150d] disabled:opacity-50">
+              {pending ? "Salvando..." : "Confirmar presença"}
             </button>
             <button
               type="button"
