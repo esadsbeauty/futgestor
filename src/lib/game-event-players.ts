@@ -1,20 +1,13 @@
 import type { GameAttendancePlayer, GameGuestConfirmation } from "@/types/games";
 
 export function gameEventPlayers(
-  participants: Pick<GameAttendancePlayer, "player_id" | "player_name" | "status">[],
+  participants: Pick<GameAttendancePlayer, "player_id" | "player_name">[],
   guests: Pick<GameGuestConfirmation, "id" | "name" | "player_id" | "attendance_status">[],
 ) {
-  const players = new Map<
-    string,
-    { id: string; name: string; guest: boolean }
-  >(
-    participants
-      .filter((player) => player.status === "confirmed")
-      .map((player) => [
-        player.player_id,
-        { id: player.player_id, name: player.player_name, guest: false },
-      ] as const)
-  );
+  const players = new Map(participants.map((player) => [
+    player.player_id,
+    { id: player.player_id, name: player.player_name, guest: false },
+  ]));
   for (const guest of guests) {
     if (guest.attendance_status !== "confirmed") continue;
     const id = guest.player_id ?? `guest:${guest.id}`;
