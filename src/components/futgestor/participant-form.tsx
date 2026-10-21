@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { createParticipant, updateParticipant, type ParticipantActionState } from "@/lib/mutations/participants";
 import type { Organization, Participant } from "@/types/participants";
 import { ActionToast } from "@/components/ui/action-toast";
+import { bahiaDateString } from "@/lib/timezone";
 
 const initialState: ParticipantActionState = { ok: false };
 
@@ -28,7 +29,7 @@ export function ParticipantForm({ open, onClose, organization, participant }: { 
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = bahiaDateString();
   return <>
     <ActionToast message={state.message} success={state.ok} />
     {open && <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
