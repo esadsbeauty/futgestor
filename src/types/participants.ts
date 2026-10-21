@@ -28,6 +28,8 @@ export type Participant = {
   status: PlayerState;
   billing_type: PlayerBillingType;
   default_position: import("@/types/games").GuestPosition | null;
+  default_futsal_position: import("@/types/games").GuestPosition | null;
+  default_field_position: import("@/types/games").GuestPosition | null;
   notes: string | null;
   created_at: string;
 };
