@@ -141,6 +141,43 @@ function ResetAdminAccess({
   );
 }
 
+function RemoveAdminButton({ memberId, name }: { memberId: string; name: string }) {
+  const [state, action, pending] = useActionState(removeOrganizationAdmin, initialState);
+  return (
+    <div className="text-right">
+      <form action={action}>
+        <input type="hidden" name="member_id" value={memberId}/>
+        <button
+          disabled={pending}
+          className="focus-ring grid size-9 place-items-center rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 text-[var(--danger)] disabled:opacity-50"
+          aria-label={`Remover ${name} dos administradores`}
+        >
+          <Trash2 size={15}/>
+        </button>
+      </form>
+      {state.message && !state.ok ? <p className="mt-1 text-[10px] text-[var(--danger)]">{state.message}</p> : null}
+    </div>
+  );
+}
+
+function CancelAdminInviteButton({ inviteId }: { inviteId: string }) {
+  const [state, action, pending] = useActionState(deactivateAdminInvite, initialState);
+  return (
+    <div>
+      <form action={action}>
+        <input type="hidden" name="invite_id" value={inviteId}/>
+        <button
+          disabled={pending}
+          className="focus-ring min-h-9 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 text-xs font-bold text-[var(--danger)] disabled:opacity-50"
+        >
+          {pending ? "Cancelando..." : "Cancelar"}
+        </button>
+      </form>
+      {state.message && !state.ok ? <p className="mt-1 text-[10px] text-[var(--danger)]">{state.message}</p> : null}
+    </div>
+  );
+}
+
 function AdministratorsForm({
   admins,
   invites,
@@ -155,7 +192,7 @@ function AdministratorsForm({
   return <div className="space-y-6">
     <div className="space-y-3">
       {owner ? <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--brand)]/10 text-[var(--brand)]"><ShieldCheck size={18}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{owner.name}</p><p className="mt-0.5 truncate text-xs text-[var(--muted)]">{owner.email ?? "Sem e-mail"} · Proprietário</p></div></div> : null}
-      {administratorList.map((admin) => <div key={admin.member_id} className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[.04] text-[var(--muted)]"><UserRound size={18}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{admin.name}</p><p className="mt-0.5 truncate text-xs text-[var(--muted)]">{admin.email ?? "Sem e-mail"} · Administrador</p><ResetAdminAccess memberId={admin.member_id} email={admin.email}/></div><form action={removeOrganizationAdmin}><input type="hidden" name="member_id" value={admin.member_id}/><button className="focus-ring grid size-9 place-items-center rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 text-[var(--danger)]" aria-label={`Remover ${admin.name} dos administradores`}><Trash2 size={15}/></button></form></div>)}
+      {administratorList.map((admin) => <div key={admin.member_id} className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[.04] text-[var(--muted)]"><UserRound size={18}/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{admin.name}</p><p className="mt-0.5 truncate text-xs text-[var(--muted)]">{admin.email ?? "Sem e-mail"} · Administrador</p><ResetAdminAccess memberId={admin.member_id} email={admin.email}/></div><RemoveAdminButton memberId={admin.member_id} name={admin.name}/></div>)}
       {administratorList.length === 0 ? <p className="rounded-xl bg-white/[.04] p-3 text-sm text-[var(--muted)]">Nenhum administrador adicional cadastrado.</p> : null}
     </div>
 
@@ -171,7 +208,7 @@ function AdministratorsForm({
       </form>
     </div>
 
-    {invites.length ? <div className="border-t border-[var(--border)] pt-6"><h3 className="font-semibold">Convites pendentes</h3><div className="mt-3 space-y-3">{invites.map((invite) => { const path = `/convite-admin/${invite.token}`; const expires = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Bahia" }).format(new Date(invite.expires_at)); return <div key={invite.id} className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold">{invite.email}</p><p className="mt-1 text-xs text-[var(--muted)]">Expira em {expires}</p></div><div className="flex gap-2"><CopyAdminInviteButton url={path}/><form action={deactivateAdminInvite}><input type="hidden" name="invite_id" value={invite.id}/><button className="focus-ring min-h-9 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 text-xs font-bold text-[var(--danger)]">Cancelar</button></form></div></div></div>; })}</div></div> : null}
+    {invites.length ? <div className="border-t border-[var(--border)] pt-6"><h3 className="font-semibold">Convites pendentes</h3><div className="mt-3 space-y-3">{invites.map((invite) => { const path = `/convite-admin/${invite.token}`; const expires = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Bahia" }).format(new Date(invite.expires_at)); return <div key={invite.id} className="rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold">{invite.email}</p><p className="mt-1 text-xs text-[var(--muted)]">Expira em {expires}</p></div><div className="flex gap-2"><CopyAdminInviteButton url={path}/><CancelAdminInviteButton inviteId={invite.id}/></div></div></div>; })}</div></div> : null}
   </div>;
 }
 
