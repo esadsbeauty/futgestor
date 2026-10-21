@@ -300,6 +300,10 @@ export async function drawPublicGameTeams(
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
+  const { data: game, error: gameError } = await supabase.from("games").select("status").eq("id", gameId).eq("organization_id", organization.id).maybeSingle();
+  if (gameError || !game) return fail("Jogo não encontrado.");
+  if (game.status !== "scheduled") return fail("Não é possível sortear times após o encerramento ou cancelamento.");
+
   const { data: roster, error } = await supabase
     .from("game_players")
     .select("id,source,guest_confirmation_id,player_id,position,sport_type")
@@ -311,7 +315,7 @@ export async function drawPublicGameTeams(
   if (!roster || roster.length < 2) return fail("É necessário ter pelo menos 2 jogadores confirmados.");
 
   const eligible = roster.filter((player) => player.position && player.sport_type);
-  if (eligible.length < 2) {
+  if (eligible.length !== roster.length) {
     return fail("Defina a posição dos jogadores confirmados antes de sortear.");
   }
   const shuffled = [...eligible].sort(() => Math.random() - 0.5);
@@ -339,44 +343,52 @@ export async function drawPublicGameTeams(
   goalkeepers.forEach(place);
   others.forEach(place);
 
-  await supabase
+  const { error: clearError } = await supabase
     .from("game_players")
     .update({ team_number: null, updated_at: new Date().toISOString() })
     .eq("organization_id", organization.id)
     .eq("game_id", gameId);
+  if (clearError) return fail("Não foi possível limpar os times.");
 
   const assignments = ([1, 2] as const).flatMap((team) =>
     teams[team].map((player) => ({ ...player, team }))
   );
 
+  try {
   await Promise.all(
     assignments.map(async (player) => {
-      await supabase
+      const { error: assignmentError } = await supabase
         .from("game_players")
         .update({ team_number: player.team, updated_at: new Date().toISOString() })
         .eq("id", player.id)
         .eq("organization_id", organization.id)
         .eq("game_id", gameId);
+      if (assignmentError) throw new Error("Falha ao salvar time.");
 
       if (player.source === "guest" && player.guest_confirmation_id) {
-        await supabase
+        const { error: guestError } = await supabase
           .from("game_guest_confirmations")
           .update({ team_number: player.team, updated_at: new Date().toISOString() })
           .eq("id", player.guest_confirmation_id)
           .eq("organization_id", organization.id)
           .eq("game_id", gameId);
+        if (guestError) throw new Error("Falha na sincronização do convidado.");
       }
 
       if (player.source === "participant" && player.player_id) {
-        await supabase
+        const { error: attendanceError } = await supabase
           .from("game_attendances")
           .update({ team_number: player.team, updated_at: new Date().toISOString() })
           .eq("player_id", player.player_id)
           .eq("organization_id", organization.id)
           .eq("game_id", gameId);
+        if (attendanceError) throw new Error("Falha na sincronização do participante.");
       }
     })
   );
+  } catch {
+    return fail("Sorteio não concluído. Confira os times e tente novamente.");
+  }
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/meu-grupo");
