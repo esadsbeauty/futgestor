@@ -162,40 +162,54 @@ export async function activateExistingPlayerAccount(
 }
 
 
-const positionSchema = z.enum([
+const futsalPositionSchema = z.enum([
   "goalkeeper",
   "fixed",
   "winger",
   "pivot",
+  "other",
+]).nullable();
+
+const fieldPositionSchema = z.enum([
+  "goalkeeper",
   "full_back",
   "center_back",
   "defensive_mid",
   "midfielder",
+  "winger",
   "striker",
   "other",
-]);
+]).nullable();
 
 export async function updateMyPlayerPosition(
   _: PlayerAccountActionState,
   formData: FormData
 ): Promise<PlayerAccountActionState> {
-  const parsed = positionSchema.safeParse(formData.get("position"));
+  const parsed = z.object({
+    futsal: futsalPositionSchema,
+    field: fieldPositionSchema,
+  }).safeParse({
+    futsal: formData.get("futsal_position") ? String(formData.get("futsal_position")) : null,
+    field: formData.get("field_position") ? String(formData.get("field_position")) : null,
+  });
+
   if (!parsed.success) {
-    return { ok: false, message: "Selecione uma posição válida." };
+    return { ok: false, message: "Revise suas posições." };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("update_my_player_default_position", {
-    _position: parsed.data,
+  const { error } = await supabase.rpc("update_my_player_positions", {
+    _futsal_position: parsed.data.futsal,
+    _field_position: parsed.data.field,
   });
 
   if (error) {
-    return { ok: false, message: "Não foi possível atualizar sua posição." };
+    return { ok: false, message: "Não foi possível atualizar suas posições." };
   }
 
   revalidatePath("/meu-grupo");
   revalidatePath("/configuracoes");
   revalidatePath("/participantes");
 
-  return { ok: true, message: "Posição atualizada com sucesso." };
+  return { ok: true, message: "Posições atualizadas com sucesso." };
 }
