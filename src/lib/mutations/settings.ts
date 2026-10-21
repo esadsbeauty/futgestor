@@ -74,7 +74,8 @@ export async function updateBillingMode(previous: SettingsActionState, formData:
 export async function updateProfile(previous: SettingsActionState, formData: FormData): Promise<SettingsActionState> {
   const parsed = profileSettingsSchema.safeParse({
     name: formData.get("name"),
-    default_position: formData.get("default_position") ? String(formData.get("default_position")) : null,
+    default_futsal_position: formData.get("default_futsal_position") ? String(formData.get("default_futsal_position")) : null,
+    default_field_position: formData.get("default_field_position") ? String(formData.get("default_field_position")) : null,
   });
   if (!parsed.success) return validationFailure(previous, parsed.error.flatten().fieldErrors);
   try {
@@ -94,7 +95,9 @@ export async function updateProfile(previous: SettingsActionState, formData: For
       .from("players")
       .update({
         name: parsed.data.name,
-        default_position: parsed.data.default_position,
+        default_futsal_position: parsed.data.default_futsal_position,
+        default_field_position: parsed.data.default_field_position,
+        default_position: parsed.data.default_futsal_position ?? parsed.data.default_field_position,
       })
       .eq("organization_id", organization.id)
       .eq("user_id", user.id);
