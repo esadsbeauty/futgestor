@@ -623,9 +623,15 @@ export function PublicGameInviteCard({
           </button>
         </div>
 
-        <div className="mt-4">
-          <AddPlayersForm game={game.id} players={eligiblePlayers} />
-        </div>
+        {game.status === "scheduled" ? (
+          <div className="mt-4">
+            <AddPlayersForm game={game.id} players={eligiblePlayers} />
+          </div>
+        ) : (
+          <p className="mt-4 rounded-xl bg-white/[.04] p-3 text-sm text-[var(--muted)]">
+            O jogo está {game.status === "completed" ? "encerrado" : "cancelado"}. A lista abaixo fica somente para consulta e financeiro.
+          </p>
+        )}
 
         <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-5 text-center">
           <div className="rounded-xl bg-white/[.03] p-3">
@@ -649,16 +655,18 @@ export function PublicGameInviteCard({
             <span className="text-[var(--muted)]">no sorteio</span>
           </div>
 
-          <form action={drawPublicGameTeams}>
-            <input type="hidden" name="game_id" value={game.id} />
-            <button
-              disabled={confirmed.length < 2}
-              className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-[#01111d] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Shuffle size={17} />
-              {hasDraw ? "Sortear novamente" : "Sortear 2 times"}
-            </button>
-          </form>
+          {game.status === "scheduled" ? (
+            <form action={drawPublicGameTeams}>
+              <input type="hidden" name="game_id" value={game.id} />
+              <button
+                disabled={confirmed.length < 2}
+                className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-[#01111d] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Shuffle size={17} />
+                {hasDraw ? "Sortear novamente" : "Sortear 2 times"}
+              </button>
+            </form>
+          ) : null}
         </div>
       </div>
 
