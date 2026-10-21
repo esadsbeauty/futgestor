@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Clock3,
   MapPin,
-  Trash2,
   XCircle,
 } from "lucide-react";
 import {
@@ -12,6 +11,8 @@ import {
   ExpenseForm,
   GameEventForm,
   GameLifecycleActions,
+  PayGameExpenseButton,
+  RemoveGameEventButton,
 } from "@/components/futgestor/game-detail-actions";
 import { GameSummary } from "@/components/futgestor/game-summary";
 import { PublicGameInviteCard } from "@/components/futgestor/public-game-invite-card";
@@ -22,10 +23,6 @@ import {
 } from "@/lib/formatters";
 import { gameFinancialSummary } from "@/lib/games";
 import { gameEventPlayers } from "@/lib/game-event-players";
-import {
-  payGameExpense,
-  removeGameEvent,
-} from "@/lib/mutations/games";
 import {
   getEligiblePlayersForGame,
   getGameAttendanceSummary,
@@ -312,16 +309,7 @@ export default async function GamePage({
                   </p>
                 </div>
 
-                <form action={removeGameEvent}>
-                  <input type="hidden" name="event_id" value={event.id} />
-                  <input type="hidden" name="game_id" value={id} />
-                  <button
-                    aria-label="Remover destaque"
-                    className="p-2 text-[var(--danger)]"
-                  >
-                    <Trash2 size={17} />
-                  </button>
-                </form>
+                <RemoveGameEventButton eventId={event.id} gameId={id} />
               </article>
             ))
           ) : (
@@ -368,27 +356,9 @@ export default async function GamePage({
                   {formatCurrency(e.amount)}
                 </strong>
 
-                {e.status === "pending" && (
-                  <form
-                    action={payGameExpense}
-                  >
-                    <input
-                      type="hidden"
-                      name="expense_id"
-                      value={e.id}
-                    />
-
-                    <input
-                      type="hidden"
-                      name="game_id"
-                      value={id}
-                    />
-
-                    <button className="rounded-xl bg-[var(--success)] px-3 py-2 text-xs font-bold text-[#02150d]">
-                      Marcar como paga
-                    </button>
-                  </form>
-                )}
+                {e.status === "pending" ? (
+                  <PayGameExpenseButton expenseId={e.id} gameId={id} />
+                ) : null}
               </article>
             ))
           ) : (
