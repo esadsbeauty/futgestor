@@ -19,7 +19,7 @@ export async function getSettingsData(): Promise<SettingsData> {
       .maybeSingle(),
     supabase
       .from("players")
-      .select("default_position")
+      .select("default_position,default_futsal_position,default_field_position")
       .eq("organization_id", organization.id)
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -65,6 +65,8 @@ export async function getSettingsData(): Promise<SettingsData> {
       name: profileResult.data.name,
       email: profileResult.data.email ?? user.email ?? null,
       default_position: playerResult.data?.default_position ?? null,
+      default_futsal_position: playerResult.data?.default_futsal_position ?? null,
+      default_field_position: playerResult.data?.default_field_position ?? null,
     },
     currentRole,
     admins,
