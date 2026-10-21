@@ -156,7 +156,7 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
     gameHistory,
     gamePayments,
     confirmedRoster,
-    defaultPosition,
+    defaultPositions,
   } = data;
 
   const [tab, setTab] = useState<PlayerTab>("home");
@@ -348,13 +348,11 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
                 gameHistory.map((game) => (
                   <article key={game.game_id} className="card p-4">
                     <div className="flex items-start justify-between gap-4">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-bold">{game.title}</p>
                         <p className="mt-1 text-xs text-[var(--muted)]">
                           {formatDate(game.game_date)}
-                          {game.start_time
-                            ? ` · ${game.start_time.slice(0, 5)}`
-                            : ""}
+                          {game.start_time ? ` · ${game.start_time.slice(0, 5)}` : ""}
                         </p>
                         {game.location ? (
                           <p className="mt-2 flex items-center gap-1.5 text-xs text-[var(--muted)]">
@@ -366,6 +364,25 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
                       <span className="rounded-full bg-white/[.04] px-2.5 py-1 text-[10px] font-bold text-[var(--muted)]">
                         {game.status === "canceled" ? "Cancelado" : "Finalizado"}
                       </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border)] pt-4 sm:grid-cols-4">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Posição</p>
+                        <p className="mt-1 text-sm font-bold">{game.position ? positionLabels[game.position] : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Time</p>
+                        <p className="mt-1 text-sm font-bold">{game.team_number ? `Time ${game.team_number}` : "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Gols</p>
+                        <p className="mt-1 text-sm font-bold">⚽ {game.goals}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Cartões</p>
+                        <p className="mt-1 text-sm font-bold">🟨 {game.yellow_cards} · 🟥 {game.red_cards}</p>
+                      </div>
                     </div>
                   </article>
                 ))
@@ -531,7 +548,7 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
             <p className="mt-2 text-sm text-[var(--muted)]">
               Sua posição principal será sugerida automaticamente quando você confirmar presença.
             </p>
-            <PlayerPositionForm defaultPosition={defaultPosition} />
+            <PlayerPositionForm futsalPosition={defaultPositions.futsal} fieldPosition={defaultPositions.field} />
           </div>
         </section>
       ) : null}
