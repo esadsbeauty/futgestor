@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { participantFinancialSummary, participantMonthStatus } from "@/lib/finance";
+import { bahiaReferenceMonth } from "@/lib/timezone";
 import { createClient } from "@/lib/supabase/server";
 import type { MonthlyFee, Organization, Participant, ParticipantFinancialSummary, ParticipantWithCurrentFee } from "@/types/participants";
 import type { BillingMode } from "@/types/billing";
 
 export function currentReferenceMonth(date = new Date()) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  return bahiaReferenceMonth(date);
 }
 
 export async function getCurrentOrganizationForUser(): Promise<Organization> {
