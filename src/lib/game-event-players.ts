@@ -4,13 +4,16 @@ export function gameEventPlayers(
   participants: Pick<GameAttendancePlayer, "player_id" | "player_name" | "status">[],
   guests: Pick<GameGuestConfirmation, "id" | "name" | "player_id" | "attendance_status">[],
 ) {
-  const players = new Map(
+  const players = new Map<
+    string,
+    { id: string; name: string; guest: boolean }
+  >(
     participants
       .filter((player) => player.status === "confirmed")
       .map((player) => [
         player.player_id,
         { id: player.player_id, name: player.player_name, guest: false },
-      ])
+      ] as const)
   );
   for (const guest of guests) {
     if (guest.attendance_status !== "confirmed") continue;
