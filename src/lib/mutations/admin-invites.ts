@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { bahiaDateString } from "@/lib/timezone";
 
 export type AdminInviteActionState = {
   ok: boolean;
@@ -57,7 +58,7 @@ async function ensureAdminParticipant(
     phone: null,
     monthly_fee: organization.default_monthly_fee,
     due_day: organization.default_due_day,
-    joined_at: new Date().toISOString().slice(0, 10),
+    joined_at: bahiaDateString(),
     status: "active",
     billing_type: billingType,
     notes: "Perfil de participante criado automaticamente para administrador.",
