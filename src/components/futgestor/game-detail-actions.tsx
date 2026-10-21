@@ -1,6 +1,6 @@
 "use client";
 import { useActionState,useState } from "react";
-import { addPlayersToGame,cancelGame,completeGame,createGameEvent,createGameExpense,updateGame,type GameActionState } from "@/lib/mutations/games";
+import { addPlayersToGame,cancelGame,completeGame,createGameEvent,createGameExpense,payGameExpense,removeGameEvent,updateGame,type GameActionState } from "@/lib/mutations/games";
 import type { Game } from "@/types/games";
 import type { Participant } from "@/types/participants";
 const initial:GameActionState={ok:false};
@@ -134,6 +134,50 @@ export function GameLifecycleActions({
           {cancelState.message}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+
+export function PayGameExpenseButton({ expenseId, gameId }: { expenseId: string; gameId: string }) {
+  const [state, action, pending] = useActionState(payGameExpense, initial);
+  return (
+    <div className="text-right">
+      <form action={action}>
+        <input type="hidden" name="expense_id" value={expenseId} />
+        <input type="hidden" name="game_id" value={gameId} />
+        <button
+          disabled={pending}
+          className="rounded-xl bg-[var(--success)] px-3 py-2 text-xs font-bold text-[#02150d] disabled:opacity-50"
+        >
+          {pending ? "Salvando..." : "Marcar como paga"}
+        </button>
+      </form>
+      {state.message ? (
+        <p className={`mt-1 text-[11px] ${state.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+          {state.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export function RemoveGameEventButton({ eventId, gameId }: { eventId: string; gameId: string }) {
+  const [state, action, pending] = useActionState(removeGameEvent, initial);
+  return (
+    <div className="text-right">
+      <form action={action}>
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="game_id" value={gameId} />
+        <button
+          disabled={pending}
+          aria-label="Remover destaque"
+          className="rounded-lg p-2 text-[var(--danger)] disabled:opacity-50"
+        >
+          {pending ? "..." : "Remover"}
+        </button>
+      </form>
+      {state.message && !state.ok ? <p className="mt-1 text-[11px] text-[var(--danger)]">{state.message}</p> : null}
     </div>
   );
 }
