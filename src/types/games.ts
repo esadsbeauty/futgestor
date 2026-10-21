@@ -158,3 +158,11 @@ export type GameRosterPlayer = {
   created_at: string;
   updated_at: string;
 };
+
+
+export type PublicGameTeamEntry = {
+  player_name: string;
+  source: "guest" | "participant";
+  position: GuestPosition | null;
+  team_number: number;
+};
