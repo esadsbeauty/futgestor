@@ -26,6 +26,19 @@ import type {
 
 type PlayerTab = "home" | "games" | "ranking" | "finance" | "profile";
 
+const positionLabels: Record<string, string> = {
+  goalkeeper: "Goleiro",
+  fixed: "Fixo",
+  winger: "Ala / Ponta",
+  pivot: "Pivô",
+  full_back: "Lateral",
+  center_back: "Zagueiro",
+  defensive_mid: "Volante",
+  midfielder: "Meio-campo",
+  striker: "Atacante",
+  other: "Outra",
+};
+
 function GameCard({
   game,
   roster,
@@ -546,7 +559,7 @@ export function PlayerAccountView({ data }: { data: PlayerAccountData }) {
           <div className="card mt-5 p-5">
             <p className="font-bold">{portal.player_name}</p>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Sua posição principal será sugerida automaticamente quando você confirmar presença.
+              Defina uma posição para o futsal e outra para o campo. O sistema usa automaticamente a correta em cada jogo.
             </p>
             <PlayerPositionForm futsalPosition={defaultPositions.futsal} fieldPosition={defaultPositions.field} />
           </div>
