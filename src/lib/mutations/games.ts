@@ -85,12 +85,12 @@ export async function addPlayersToGame(
   const supabase = await createClient();
 
   const [
-    { data: game },
-    { data: players },
+    { data: game, error: gameError },
+    { data: players, error: playersError },
   ] = await Promise.all([
     supabase
       .from("games")
-      .select("id,game_format")
+      .select("id,game_format,status")
       .eq("id", gameId)
       .eq("organization_id", organization.id)
       .maybeSingle(),
@@ -102,8 +102,26 @@ export async function addPlayersToGame(
       .in("id", parsed.data.player_ids),
   ]);
 
-  if (!game || !players?.length) {
+  if (gameError || !game || playersError || !players?.length) {
     return fail("Jogo ou jogadores inválidos.");
+  }
+  if (game.status !== "scheduled") {
+    return fail("Não é possível adicionar jogadores a uma partida encerrada ou cancelada.");
+  }
+  if (players.length !== new Set(parsed.data.player_ids).size) {
+    return fail("Um ou mais participantes não estão ativos neste grupo.");
+  }
+
+  // A confirmação administrativa não deve reabrir cobranças ou alterar pagamentos existentes.
+  const { data: existing, error: rosterError } = await supabase
+    .from("game_players")
+    .select("player_id,payment_status")
+    .eq("organization_id", organization.id)
+    .eq("game_id", gameId)
+    .in("player_id", parsed.data.player_ids);
+  if (rosterError) return fail("Não foi possível verificar a situação dos jogadores.");
+  if ((existing ?? []).some((entry) => entry.payment_status === "paid")) {
+    return fail("Há jogador com pagamento registrado. Resolva a situação financeira antes de alterar a presença.");
   }
 
   const sportType = game.game_format === "field" ? "football" : "futsal";
