@@ -221,7 +221,8 @@ export default async function GamePage({
           </div>
         </div>
 
-        {attendance.players
+        {game.status === "scheduled"
+          ? attendance.players
           .filter((player) => player.is_current_user)
           .map((player) => (
             <OwnGameAttendanceCard
@@ -230,7 +231,8 @@ export default async function GamePage({
               gameFormat={game.game_format}
               player={player}
             />
-          ))}
+          ))
+          : null}
 
         <div className="card mt-4 divide-y divide-[var(--border)]">
           {attendance.players.length ? (
