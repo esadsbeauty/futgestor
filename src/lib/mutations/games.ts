@@ -775,22 +775,28 @@ export async function markPublicGameGuestPaid(formData: FormData) {
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  const { data: confirmation } = await supabase
-    .from("game_guest_confirmations")
-    .select("id")
-    .eq("id", confirmationId)
+  const { data: roster, error: lookupError } = await supabase
+    .from("game_players")
+    .select("id,payment_status")
+    .eq("guest_confirmation_id", confirmationId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id)
+    .eq("source", "guest")
     .eq("attendance_status", "confirmed")
     .maybeSingle();
 
-  if (!confirmation) return;
-
-  const { error } = await supabase.rpc("mark_game_guest_paid", {
-    _confirmation: confirmation.id,
-  });
-
-  if (error) return;
+  if (lookupError || !roster) {
+    throw new Error("Convidado não encontrado na escalação do jogo.");
+  }
+  if (roster.payment_status === "not_required") {
+    throw new Error("Este convidado não possui cobrança neste jogo.");
+  }
+  if (roster.payment_status !== "paid") {
+    const { error } = await supabase.rpc("mark_game_player_paid", {
+      _game_player: roster.id,
+    });
+    if (error) throw new Error("Não foi possível registrar o pagamento do convidado.");
+  }
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/jogos");
