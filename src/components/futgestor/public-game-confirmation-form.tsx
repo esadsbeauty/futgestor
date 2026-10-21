@@ -6,7 +6,7 @@ import {
   confirmPublicGamePresence,
   type GameActionState,
 } from "@/lib/mutations/games";
-import type { GuestAttendanceStatus, GuestSportType } from "@/types/games";
+import type { GameFormat, GuestAttendanceStatus } from "@/types/games";
 
 const initialState: GameActionState = { ok: false };
 
@@ -31,16 +31,14 @@ const footballPositions = [
 
 export function PublicGameConfirmationForm({
   token,
+  gameFormat,
 }: {
   token: string;
+  gameFormat: GameFormat;
 }) {
-  const [state, action, pending] = useActionState(
-    confirmPublicGamePresence,
-    initialState
-  );
-  const [attendanceStatus, setAttendanceStatus] =
-    useState<GuestAttendanceStatus | "">("");
-  const [sportType, setSportType] = useState<GuestSportType | "">("");
+  const [state, action, pending] = useActionState(confirmPublicGamePresence, initialState);
+  const [attendanceStatus, setAttendanceStatus] = useState<GuestAttendanceStatus | "">("");
+  const positions = gameFormat === "field" ? footballPositions : futsalPositions;
 
   if (state.ok) {
     const going = state.message?.includes("confirmada");
@@ -59,16 +57,10 @@ export function PublicGameConfirmationForm({
     );
   }
 
-  const positions =
-    sportType === "futsal"
-      ? futsalPositions
-      : sportType === "football"
-        ? footballPositions
-        : [];
-
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="token" value={token} />
+      <input type="hidden" name="sport_type" value={gameFormat === "field" ? "football" : "futsal"} />
 
       <label className="block">
         <span className="text-sm font-medium">Seu nome</span>
@@ -81,48 +73,21 @@ export function PublicGameConfirmationForm({
           placeholder="Digite seu nome"
         />
         {state.fieldErrors?.name?.[0] ? (
-          <small className="mt-1 block text-[var(--danger)]">
-            {state.fieldErrors.name[0]}
-          </small>
+          <small className="mt-1 block text-[var(--danger)]">{state.fieldErrors.name[0]}</small>
         ) : null}
       </label>
 
       <div>
         <span className="text-sm font-medium">Você vai participar?</span>
         <div className="mt-2 grid grid-cols-2 gap-3">
-          <label className={`cursor-pointer rounded-2xl border p-4 text-center transition ${
-            attendanceStatus === "confirmed"
-              ? "border-[var(--success)]/50 bg-[var(--success)]/10"
-              : "border-[var(--border)] bg-white/[.025]"
-          }`}>
-            <input
-              type="radio"
-              name="attendance_status"
-              value="confirmed"
-              className="sr-only"
-              required
-              onChange={() => setAttendanceStatus("confirmed")}
-            />
+          <label className={`cursor-pointer rounded-2xl border p-4 text-center transition ${attendanceStatus === "confirmed" ? "border-[var(--success)]/50 bg-[var(--success)]/10" : "border-[var(--border)] bg-white/[.025]"}`}>
+            <input type="radio" name="attendance_status" value="confirmed" className="sr-only" required onChange={() => setAttendanceStatus("confirmed")} />
             <CheckCircle2 className="mx-auto text-[var(--success)]" size={22}/>
             <span className="mt-2 block text-sm font-bold">Vou</span>
           </label>
 
-          <label className={`cursor-pointer rounded-2xl border p-4 text-center transition ${
-            attendanceStatus === "declined"
-              ? "border-[var(--danger)]/40 bg-[var(--danger)]/10"
-              : "border-[var(--border)] bg-white/[.025]"
-          }`}>
-            <input
-              type="radio"
-              name="attendance_status"
-              value="declined"
-              className="sr-only"
-              required
-              onChange={() => {
-                setAttendanceStatus("declined");
-                setSportType("");
-              }}
-            />
+          <label className={`cursor-pointer rounded-2xl border p-4 text-center transition ${attendanceStatus === "declined" ? "border-[var(--danger)]/40 bg-[var(--danger)]/10" : "border-[var(--border)] bg-white/[.025]"}`}>
+            <input type="radio" name="attendance_status" value="declined" className="sr-only" required onChange={() => setAttendanceStatus("declined")} />
             <XCircle className="mx-auto text-[var(--danger)]" size={22}/>
             <span className="mt-2 block text-sm font-bold">Não vou</span>
           </label>
@@ -130,58 +95,19 @@ export function PublicGameConfirmationForm({
       </div>
 
       {attendanceStatus === "confirmed" ? (
-        <>
-          <label className="block">
-            <span className="text-sm font-medium">Tipo de jogo</span>
-            <select
-              name="sport_type"
-              className="input"
-              required
-              value={sportType}
-              onChange={(event) =>
-                setSportType(event.target.value as GuestSportType | "")
-              }
-            >
-              <option value="" disabled>Selecione</option>
-              <option value="futsal">Futsal</option>
-              <option value="football">Futebol de campo</option>
-            </select>
-            {state.fieldErrors?.sport_type?.[0] ? (
-              <small className="mt-1 block text-[var(--danger)]">
-                {state.fieldErrors.sport_type[0]}
-              </small>
-            ) : null}
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium">Sua posição</span>
-            <select
-              key={sportType}
-              name="position"
-              className="input"
-              required
-              defaultValue=""
-              disabled={!sportType}
-            >
-              <option value="" disabled>
-                {sportType ? "Selecione" : "Escolha primeiro o tipo de jogo"}
-              </option>
-              {positions.map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            {state.fieldErrors?.position?.[0] ? (
-              <small className="mt-1 block text-[var(--danger)]">
-                {state.fieldErrors.position[0]}
-              </small>
-            ) : null}
-          </label>
-        </>
+        <label className="block">
+          <span className="text-sm font-medium">Sua posição</span>
+          <select name="position" className="input" required defaultValue="">
+            <option value="" disabled>Selecione</option>
+            {positions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          {state.fieldErrors?.position?.[0] ? (
+            <small className="mt-1 block text-[var(--danger)]">{state.fieldErrors.position[0]}</small>
+          ) : null}
+        </label>
       ) : null}
 
-      {state.message ? (
-        <p role="alert" className="text-sm text-[var(--danger)]">{state.message}</p>
-      ) : null}
+      {state.message ? <p role="alert" className="text-sm text-[var(--danger)]">{state.message}</p> : null}
 
       <button
         disabled={pending || !attendanceStatus}
