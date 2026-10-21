@@ -42,6 +42,7 @@ export function PlayerGameAttendance({
   const [positionOpen, setPositionOpen] = useState(false);
   const status = state.ok && state.status ? state.status : game.attendance_status;
   const positions = game.game_format === "field" ? footballPositions : futsalPositions;
+  const myRosterEntry = roster.find((entry) => entry.is_current_user);
 
   if (game.attendance_locked) {
     return (
@@ -94,6 +95,23 @@ export function PlayerGameAttendance({
           </button>
         </form>
       </div>
+
+      {myRosterEntry?.team_number ? (
+        <div className="mt-5 rounded-2xl border border-[var(--brand)]/30 bg-[var(--brand)]/10 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[var(--brand)]">Seu time</p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-2xl font-black">Time {myRosterEntry.team_number}</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {myRosterEntry.position ? positionLabels[myRosterEntry.position] : "Posição não definida"}
+              </p>
+            </div>
+            <span className="rounded-full bg-[var(--brand)] px-3 py-1 text-xs font-black text-[#01111d]">
+              Você
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-5 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4">
         <div className="flex items-center gap-2">
