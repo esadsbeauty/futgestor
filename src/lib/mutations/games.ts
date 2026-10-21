@@ -8,6 +8,7 @@ import { gameEventSchema,gameExpenseSchema,gamePlayersSchema,gameSchema,publicGa
 import { effectivePlayerBillingType, shouldGenerateMonthlyFee } from "@/lib/billing";
 import { currentReferenceMonth } from "@/lib/queries/participants";
 import { z } from "zod";
+import { bahiaDateString } from "@/lib/timezone";
 
 export type GameActionState={ok:boolean;message?:string;fieldErrors?:Record<string,string[]|undefined>};
 const fail=(message:string):GameActionState=>({ok:false,message});
@@ -588,7 +589,7 @@ export async function promoteGameGuestToParticipant(
       phone: parsed.data.phone,
       monthly_fee: organization.default_monthly_fee,
       due_day: organization.default_due_day,
-      joined_at: new Date().toISOString().slice(0, 10),
+      joined_at: bahiaDateString(),
       status: "active",
       billing_type: billingType,
       notes: "Criado a partir da confirmação pública de um jogo.",
