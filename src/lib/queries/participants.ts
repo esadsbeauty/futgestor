@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { participantFinancialSummary, participantMonthStatus } from "@/lib/finance";
+import { bahiaReferenceMonth } from "@/lib/timezone";
 import { createClient } from "@/lib/supabase/server";
 import type { MonthlyFee, Organization, Participant, ParticipantFinancialSummary, ParticipantWithCurrentFee } from "@/types/participants";
 import type { BillingMode } from "@/types/billing";
 
 export function currentReferenceMonth(date = new Date()) {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  return bahiaReferenceMonth(date);
 }
 
 export async function getCurrentOrganizationForUser(): Promise<Organization> {
@@ -15,7 +16,7 @@ export async function getCurrentOrganizationForUser(): Promise<Organization> {
 
   const { data, error } = await supabase
     .from("organization_members")
-    .select("organization_id, organizations!inner(id,name,default_monthly_fee,default_due_day,billing_mode)")
+    .select("organization_id, organizations!inner(id,name,default_monthly_fee,default_due_day,billing_mode,show_cash_balance,show_receivables,show_payables,show_pending_players,show_individual_values)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -63,4 +64,91 @@ export async function getParticipantFees(organizationId: string, participantId: 
 
 export function getParticipantSummary(fees: MonthlyFee[]): ParticipantFinancialSummary {
   return participantFinancialSummary(fees);
+}
+
+
+export type ParticipantGameHistoryEntry = {
+  game_id: string;
+  title: string;
+  game_date: string;
+  start_time: string | null;
+  status: string;
+  position: import("@/types/games").GuestPosition | null;
+  team_number: number | null;
+  payment_status: "pending" | "paid" | "not_required";
+  amount: number;
+  goals: number;
+  yellow_cards: number;
+  red_cards: number;
+};
+
+export async function getParticipantGameHistory(
+  organizationId: string,
+  participantId: string
+): Promise<ParticipantGameHistoryEntry[]> {
+  const supabase = await createClient();
+
+  const [
+    { data: roster, error: rosterError },
+    { data: games, error: gamesError },
+    { data: events, error: eventsError },
+    { data: guestLinks, error: guestLinksError },
+  ] = await Promise.all([
+    supabase
+      .from("game_players")
+      .select("game_id,position,team_number,payment_status,amount")
+      .eq("organization_id", organizationId)
+      .eq("player_id", participantId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("games")
+      .select("id,title,game_date,start_time,status")
+      .eq("organization_id", organizationId),
+    supabase
+      .from("game_events")
+      .select("game_id,player_id,guest_confirmation_id,event_type,quantity")
+      .eq("organization_id", organizationId),
+    supabase
+      .from("game_guest_confirmations")
+      .select("id,player_id")
+      .eq("organization_id", organizationId)
+      .eq("player_id", participantId),
+  ]);
+
+  if (rosterError || gamesError || eventsError || guestLinksError) {
+    throw new Error("Não foi possível carregar o histórico de jogos do participante.");
+  }
+
+  const gamesById = new Map((games ?? []).map((game) => [game.id, game]));
+  const linkedGuestIds = new Set((guestLinks ?? []).map((guest) => guest.id));
+
+  return (roster ?? []).map((entry) => {
+    const game = gamesById.get(entry.game_id);
+    const gameEvents = (events ?? []).filter(
+      (event) =>
+        event.game_id === entry.game_id &&
+        (event.player_id === participantId ||
+          (event.guest_confirmation_id && linkedGuestIds.has(event.guest_confirmation_id)))
+    );
+
+    const sum = (type: "goal" | "yellow_card" | "red_card") =>
+      gameEvents
+        .filter((event) => event.event_type === type)
+        .reduce((total, event) => total + Number(event.quantity ?? 0), 0);
+
+    return {
+      game_id: entry.game_id,
+      title: game?.title ?? "Jogo",
+      game_date: game?.game_date ?? "",
+      start_time: game?.start_time ?? null,
+      status: game?.status ?? "scheduled",
+      position: entry.position as ParticipantGameHistoryEntry["position"],
+      team_number: entry.team_number,
+      payment_status: entry.payment_status as ParticipantGameHistoryEntry["payment_status"],
+      amount: Number(entry.amount ?? 0),
+      goals: sum("goal"),
+      yellow_cards: sum("yellow_card"),
+      red_cards: sum("red_card"),
+    };
+  });
 }

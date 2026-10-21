@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { createParticipant, updateParticipant, type ParticipantActionState } from "@/lib/mutations/participants";
 import type { Organization, Participant } from "@/types/participants";
 import { ActionToast } from "@/components/ui/action-toast";
+import { bahiaDateString } from "@/lib/timezone";
 
 const initialState: ParticipantActionState = { ok: false };
 
@@ -28,7 +29,7 @@ export function ParticipantForm({ open, onClose, organization, participant }: { 
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = bahiaDateString();
   return <>
     <ActionToast message={state.message} success={state.ok} />
     {open && <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -42,6 +43,8 @@ export function ParticipantForm({ open, onClose, organization, participant }: { 
           <label><span className="text-sm font-medium">Dia do vencimento</span><input required name="due_day" type="number" inputMode="numeric" min="1" max="31" defaultValue={participant?.due_day ?? organization.default_due_day} className="input"/><FieldError errors={state.fieldErrors?.due_day}/></label>
           <label><span className="text-sm font-medium">Data de entrada</span><input required name="joined_at" type="date" defaultValue={participant?.joined_at ?? today} className="input"/><FieldError errors={state.fieldErrors?.joined_at}/></label>
           <label className="sm:col-span-2"><span className="text-sm font-medium">Status</span><select name="status" defaultValue={participant?.status ?? "active"} className="input"><option value="active">Ativo</option><option value="inactive">Inativo</option></select><FieldError errors={state.fieldErrors?.status}/></label>
+          <label><span className="text-sm font-medium">Posição no futsal</span><select name="default_futsal_position" defaultValue={participant?.default_futsal_position ?? ""} className="input"><option value="">Não definida</option><option value="goalkeeper">Goleiro</option><option value="fixed">Fixo</option><option value="winger">Ala</option><option value="pivot">Pivô</option><option value="other">Outra</option></select><FieldError errors={state.fieldErrors?.default_futsal_position}/></label>
+          <label><span className="text-sm font-medium">Posição no campo</span><select name="default_field_position" defaultValue={participant?.default_field_position ?? ""} className="input"><option value="">Não definida</option><option value="goalkeeper">Goleiro</option><option value="full_back">Lateral</option><option value="center_back">Zagueiro</option><option value="defensive_mid">Volante</option><option value="midfielder">Meio-campo</option><option value="winger">Ponta</option><option value="striker">Atacante</option><option value="other">Outra</option></select><FieldError errors={state.fieldErrors?.default_field_position}/></label>
           {organization.billing_mode === "hybrid" ? <label className="sm:col-span-2"><span className="text-sm font-medium">Tipo de cobrança</span><select name="billing_type" defaultValue={participant?.billing_type ?? "monthly"} className="input"><option value="monthly">Mensalista</option><option value="per_game">Por jogo</option></select><FieldError errors={state.fieldErrors?.billing_type}/></label> : <input type="hidden" name="billing_type" value={organization.billing_mode === "per_game" ? "per_game" : "monthly"}/>}
           <label className="sm:col-span-2"><span className="text-sm font-medium">Observações</span><textarea name="notes" rows={3} defaultValue={participant?.notes ?? ""} placeholder="Informações opcionais" className="input resize-none"/><FieldError errors={state.fieldErrors?.notes}/></label>
           {state.message && !state.ok && <p role="alert" className="sm:col-span-2 text-sm text-[var(--danger)]">{state.message}</p>}

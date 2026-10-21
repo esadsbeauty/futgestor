@@ -1,6 +1,6 @@
 import { effectiveBillStatus, effectiveFeeStatus, monthlyFinancialOverview } from "@/lib/finance";
 import { createClient } from "@/lib/supabase/server";
-import type { Bill, BillWithStatus, FeeWithPlayer, FinancialOverview, Transaction, TransactionWithOrigin } from "@/types/finance";
+import type { Bill, BillWithStatus, FeeWithPlayer, FinancialOverview, GameFinancialOverview, Transaction, TransactionWithOrigin } from "@/types/finance";
 import type { MonthlyFee } from "@/types/participants";
 
 export function monthBounds(referenceMonth: string) {
@@ -57,4 +57,73 @@ export async function getCurrentBalanceTransactions(organizationId: string): Pro
 
 export function getFinancialOverview(allTransactions: Transaction[], monthTransactions: Transaction[], monthFees: MonthlyFee[]): FinancialOverview {
   return monthlyFinancialOverview(allTransactions, monthTransactions, monthFees);
+}
+
+
+export async function getMonthlyGameFinancialOverview(
+  organizationId: string,
+  referenceMonth: string
+): Promise<GameFinancialOverview> {
+  const { start, next } = monthBounds(referenceMonth);
+  const supabase = await createClient();
+
+  const [
+    { data: games, error: gamesError },
+    { data: roster, error: rosterError },
+    { data: expenses, error: expensesError },
+  ] = await Promise.all([
+    supabase
+      .from("games")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .gte("game_date", start)
+      .lt("game_date", next)
+      .neq("status", "canceled"),
+    supabase
+      .from("game_players")
+      .select("game_id,amount,payment_status,attendance_status")
+      .eq("organization_id", organizationId)
+      .eq("attendance_status", "confirmed"),
+    supabase
+      .from("game_expenses")
+      .select("game_id,amount,status")
+      .eq("organization_id", organizationId),
+  ]);
+
+  if (gamesError || rosterError || expensesError) {
+    throw new Error("Não foi possível carregar o financeiro dos jogos.");
+  }
+
+  const monthGameIds = new Set((games ?? []).map((game) => game.id));
+
+  let expected = 0;
+  let received = 0;
+
+  for (const player of roster ?? []) {
+    if (!monthGameIds.has(player.game_id)) continue;
+    const amount = Number(player.amount ?? 0);
+    expected += amount;
+    if (player.payment_status === "paid") received += amount;
+  }
+
+  let totalExpenses = 0;
+  let paidExpenses = 0;
+
+  for (const expense of expenses ?? []) {
+    if (!monthGameIds.has(expense.game_id)) continue;
+    const amount = Number(expense.amount ?? 0);
+    totalExpenses += amount;
+    if (expense.status === "paid") paidExpenses += amount;
+  }
+
+  return {
+    expected,
+    received,
+    open: expected - received,
+    totalExpenses,
+    paidExpenses,
+    openExpenses: totalExpenses - paidExpenses,
+    expectedResult: expected - totalExpenses,
+    receivedResult: received - paidExpenses,
+  };
 }
