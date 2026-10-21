@@ -5,6 +5,8 @@ export type CurrentProfile = {
   name: string;
   email: string | null;
   default_position: import("@/types/games").GuestPosition | null;
+  default_futsal_position: import("@/types/games").GuestPosition | null;
+  default_field_position: import("@/types/games").GuestPosition | null;
 };
 
 export type OrganizationAdmin = {
