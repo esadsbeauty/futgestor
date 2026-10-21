@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/formatters";
 import {
   getPublicGameInvite,
   getPublicGameInviteResponses,
-  getPublicGameTeams,
+  getPublicGameRoster,
 } from "@/lib/queries/games";
 import type { GuestPosition, GuestSportType } from "@/types/games";
 
@@ -34,10 +34,10 @@ export default async function PublicGameInvitePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const [game, responses, teams] = await Promise.all([
+  const [game, responses, roster] = await Promise.all([
     getPublicGameInvite(token),
     getPublicGameInviteResponses(token),
-    getPublicGameTeams(token),
+    getPublicGameRoster(token),
   ]);
 
   if (!game) {
@@ -54,10 +54,10 @@ export default async function PublicGameInvitePage({
     );
   }
 
-  const confirmed = responses.filter((item) => item.attendance_status === "confirmed");
+  const confirmed = roster;
   const declined = responses.filter((item) => item.attendance_status === "declined");
-  const teamOne = teams.filter((item) => item.team_number === 1);
-  const teamTwo = teams.filter((item) => item.team_number === 2);
+  const teamOne = roster.filter((item) => item.team_number === 1);
+  const teamTwo = roster.filter((item) => item.team_number === 2);
   const hasDraw = teamOne.length > 0 || teamTwo.length > 0;
 
   return (
@@ -90,7 +90,7 @@ export default async function PublicGameInvitePage({
           </div>
 
           <div className="mt-7">
-            <PublicGameConfirmationForm token={token} />
+            <PublicGameConfirmationForm token={token} gameFormat={game.game_format} />
           </div>
         </section>
 
@@ -162,14 +162,15 @@ export default async function PublicGameInvitePage({
               {confirmed.length ? (
                 confirmed.map((player, index) => (
                   <div
-                    key={`${player.name}-${player.created_at}-${index}`}
+                    key={`${player.source}-${player.player_name}-${index}`}
                     className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-3"
                   >
-                    <span className="min-w-0 truncate text-sm font-bold">{player.name}</span>
+                    <div className="min-w-0">
+                      <span className="block truncate text-sm font-bold">{player.player_name}</span>
+                      <span className="mt-0.5 block text-[11px] text-[var(--muted)]">{player.source === "guest" ? "Convidado" : "Participante"}</span>
+                    </div>
                     <span className="shrink-0 text-right text-xs text-[var(--muted)]">
-                      {player.sport_type && player.position
-                        ? `${sportLabels[player.sport_type]} · ${positionLabels[player.position]}`
-                        : ""}
+                      {player.position ? positionLabels[player.position] : ""}
                     </span>
                   </div>
                 ))
