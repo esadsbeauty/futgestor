@@ -14,37 +14,59 @@ export type GameActionState={ok:boolean;message?:string;fieldErrors?:Record<stri
 const fail=(message:string):GameActionState=>({ok:false,message});
 const payload=(f:FormData)=>({title:f.get("title"),game_date:f.get("game_date"),start_time:f.get("start_time")??"",location:f.get("location")??"",player_price:f.get("player_price"),notes:f.get("notes")??"",status:f.get("status")??"scheduled",game_format:f.get("game_format")??"court"});
 export async function createGame(_:GameActionState,f:FormData):Promise<GameActionState>{const p=gameSchema.safeParse(payload(f));if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};let id:string|undefined;try{const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error}=await s.from("games").insert({...p.data,start_time:p.data.start_time||null,organization_id:o.id,created_by:(await s.auth.getUser()).data.user!.id}).select("id").single();if(error)return fail("Não foi possível criar o jogo.");id=data.id;}catch{return fail("Não foi possível criar o jogo.");}redirect(`/jogos/${id}`);}
-export async function respondOwnGameAttendance(formData: FormData) {
+export async function respondOwnGameAttendance(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const gameId = String(formData.get("game_id") ?? "");
   const status = String(formData.get("status") ?? "");
   const position = String(formData.get("position") ?? "");
 
-  if (!gameId || !["confirmed", "declined"].includes(status)) return;
-  if (status === "confirmed" && !position) return;
+  if (!gameId || !["confirmed", "declined"].includes(status)) {
+    return fail("Resposta de presença inválida.");
+  }
+  if (status === "confirmed" && !position) {
+    return fail("Escolha sua posição antes de confirmar.");
+  }
 
-  const organization = await getCurrentOrganizationForUser();
-  const supabase = await createClient();
+  try {
+    const organization = await getCurrentOrganizationForUser();
+    const supabase = await createClient();
 
-  const { data: game } = await supabase
-    .from("games")
-    .select("id")
-    .eq("id", gameId)
-    .eq("organization_id", organization.id)
-    .maybeSingle();
+    const { data: game, error: gameError } = await supabase
+      .from("games")
+      .select("id,status")
+      .eq("id", gameId)
+      .eq("organization_id", organization.id)
+      .maybeSingle();
 
-  if (!game) return;
+    if (gameError || !game) return fail("Jogo não encontrado.");
+    if (game.status !== "scheduled") return fail("Este jogo não aceita mais confirmações.");
 
-  const { error } = await supabase.rpc("respond_my_game_attendance", {
-    _game_id: gameId,
-    _status: status,
-    _position: status === "confirmed" ? position : null,
-  });
+    const { error } = await supabase.rpc("respond_my_game_attendance", {
+      _game_id: gameId,
+      _status: status,
+      _position: status === "confirmed" ? position : null,
+    });
 
-  if (error) return;
+    if (error) {
+      const message = error.message?.includes("payment already registered")
+        ? "Existe um pagamento registrado. Resolva o pagamento antes de alterar para “Não vou”."
+        : "Não foi possível atualizar sua presença.";
+      return fail(message);
+    }
 
-  revalidatePath(`/jogos/${gameId}`);
-  revalidatePath("/jogos");
-  revalidatePath("/meu-grupo");
+    revalidatePath(`/jogos/${gameId}`);
+    revalidatePath("/jogos");
+    revalidatePath("/meu-grupo");
+
+    return {
+      ok: true,
+      message: status === "confirmed" ? "Presença confirmada." : "Presença atualizada para “Não vou”.",
+    };
+  } catch {
+    return fail("Não foi possível atualizar sua presença.");
+  }
 }
 
 export async function updateGame(_:GameActionState,f:FormData):Promise<GameActionState>{const id=String(f.get("game_id")??"");const p=gameSchema.safeParse(payload(f));if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error}=await s.from("games").update({...p.data,start_time:p.data.start_time||null,updated_at:new Date().toISOString()}).eq("id",id).eq("organization_id",o.id).select("id").maybeSingle();if(error||!data)return fail("Não foi possível atualizar o jogo.");revalidatePath(`/jogos/${id}`);revalidatePath("/jogos");return{ok:true,message:"Jogo atualizado."};}
@@ -115,7 +137,7 @@ export async function addPlayersToGame(
 export async function removePendingGameCharge(f:FormData){const id=String(f.get("charge_id"));const game=String(f.get("game_id"));const o=await getCurrentOrganizationForUser();const s=await createClient();await s.from("game_charges").delete().eq("id",id).eq("game_id",game).eq("organization_id",o.id).eq("status","pending");revalidatePath(`/jogos/${game}`);}
 export async function payGameCharge(f:FormData){const id=String(f.get("charge_id"));const game=String(f.get("game_id"));const o=await getCurrentOrganizationForUser();const s=await createClient();const{data}=await s.from("game_charges").select("id").eq("id",id).eq("game_id",game).eq("organization_id",o.id).maybeSingle();if(data)await s.rpc("mark_game_charge_paid",{_charge:id});revalidatePath(`/jogos/${game}`);revalidatePath("/financeiro");}
 export async function createGameExpense(_:GameActionState,f:FormData):Promise<GameActionState>{const game=String(f.get("game_id"));const p=gameExpenseSchema.safeParse({description:f.get("description"),category:f.get("category"),amount:f.get("amount")});if(!p.success)return{ok:false,message:"Revise os campos.",fieldErrors:p.error.flatten().fieldErrors};const o=await getCurrentOrganizationForUser();const s=await createClient();const{data:g}=await s.from("games").select("id").eq("id",game).eq("organization_id",o.id).maybeSingle();if(!g)return fail("Jogo inválido.");const{error}=await s.from("game_expenses").insert({...p.data,organization_id:o.id,game_id:game});if(error)return fail("Não foi possível adicionar a despesa.");revalidatePath(`/jogos/${game}`);return{ok:true,message:"Despesa adicionada."};}
-export async function payGameExpense(f:FormData){const id=String(f.get("expense_id"));const game=String(f.get("game_id"));const o=await getCurrentOrganizationForUser();const s=await createClient();const{data}=await s.from("game_expenses").select("id").eq("id",id).eq("game_id",game).eq("organization_id",o.id).maybeSingle();if(data)await s.rpc("mark_game_expense_paid",{_expense:id});revalidatePath(`/jogos/${game}`);revalidatePath("/financeiro");}
+export async function payGameExpense(_:GameActionState,f:FormData):Promise<GameActionState>{const id=String(f.get("expense_id")??"");const game=String(f.get("game_id")??"");if(!id||!game)return fail("Despesa inválida.");const o=await getCurrentOrganizationForUser();const s=await createClient();const{data,error:lookupError}=await s.from("game_expenses").select("id,status").eq("id",id).eq("game_id",game).eq("organization_id",o.id).maybeSingle();if(lookupError||!data)return fail("Despesa não encontrada.");if(data.status==="paid")return{ok:true,message:"Despesa já estava paga."};const{error}=await s.rpc("mark_game_expense_paid",{_expense:id});if(error)return fail("Não foi possível marcar a despesa como paga.");revalidatePath(`/jogos/${game}`);revalidatePath("/financeiro");revalidatePath("/dashboard");return{ok:true,message:"Despesa marcada como paga."};}
 
 
 export async function createGameEvent(
@@ -184,21 +206,30 @@ export async function createGameEvent(
   return { ok: true, message: "Destaque registrado." };
 }
 
-export async function removeGameEvent(formData: FormData) {
+export async function removeGameEvent(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const eventId = String(formData.get("event_id") ?? "");
   const gameId = String(formData.get("game_id") ?? "");
+  if (!eventId || !gameId) return fail("Destaque inválido.");
+
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  await supabase
+  const { error } = await supabase
     .from("game_events")
     .delete()
     .eq("id", eventId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id);
 
+  if (error) return fail("Não foi possível remover o destaque.");
+
   revalidatePath(`/jogos/${gameId}`);
+  return { ok: true, message: "Destaque removido." };
 }
+
 
 export async function confirmPublicGamePresence(
   _: GameActionState,
@@ -243,7 +274,10 @@ export async function confirmPublicGamePresence(
   };
 }
 
-export async function drawPublicGameTeams(formData: FormData) {
+export async function drawPublicGameTeams(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const gameId = String(formData.get("game_id") ?? "");
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
@@ -255,12 +289,13 @@ export async function drawPublicGameTeams(formData: FormData) {
     .eq("game_id", gameId)
     .eq("attendance_status", "confirmed");
 
-  if (error || !roster?.length) {
-    revalidatePath(`/jogos/${gameId}`);
-    return;
-  }
+  if (error) return fail("Não foi possível carregar os jogadores para o sorteio.");
+  if (!roster || roster.length < 2) return fail("É necessário ter pelo menos 2 jogadores confirmados.");
 
   const eligible = roster.filter((player) => player.position && player.sport_type);
+  if (eligible.length < 2) {
+    return fail("Defina a posição dos jogadores confirmados antes de sortear.");
+  }
   const shuffled = [...eligible].sort(() => Math.random() - 0.5);
   const goalkeepers = shuffled.filter((player) => player.position === "goalkeeper");
   const others = shuffled.filter((player) => player.position !== "goalkeeper");
@@ -327,6 +362,7 @@ export async function drawPublicGameTeams(formData: FormData) {
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/meu-grupo");
+  return { ok: true, message: "Times sorteados com sucesso." };
 }
 export async function updatePublicGameConfirmation(
   _: GameActionState,
@@ -426,15 +462,18 @@ export async function updatePublicGameConfirmation(
   return { ok: true, message: "Jogador atualizado." };
 }
 
-export async function removePublicGameConfirmation(formData: FormData) {
+export async function removePublicGameConfirmation(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const confirmationId = String(formData.get("confirmation_id") ?? "");
   const gameId = String(formData.get("game_id") ?? "");
-  if (!confirmationId || !gameId) return;
+  if (!confirmationId || !gameId) return fail("Jogador inválido.");
 
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  const { data: confirmation } = await supabase
+  const { data: confirmation, error: lookupError } = await supabase
     .from("game_guest_confirmations")
     .select("id,payment_status")
     .eq("id", confirmationId)
@@ -442,23 +481,23 @@ export async function removePublicGameConfirmation(formData: FormData) {
     .eq("organization_id", organization.id)
     .maybeSingle();
 
-  if (!confirmation || confirmation.payment_status === "paid") return;
+  if (lookupError || !confirmation) return fail("Convidado não encontrado.");
+  if (confirmation.payment_status === "paid") {
+    return fail("Este convidado possui pagamento registrado e não pode ser excluído.");
+  }
 
-  await supabase
+  const { error } = await supabase
     .from("game_guest_confirmations")
     .delete()
     .eq("id", confirmationId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id);
 
-  await supabase
-    .from("game_guest_confirmations")
-    .update({ team_number: null, updated_at: new Date().toISOString() })
-    .eq("game_id", gameId)
-    .eq("organization_id", organization.id);
+  if (error) return fail("Não foi possível excluir o convidado.");
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/jogos");
+  return { ok: true, message: "Convidado removido do jogo." };
 }
 
 
@@ -742,44 +781,58 @@ export async function markPublicGameGuestPaid(formData: FormData) {
 }
 
 
-export async function markGameRosterPlayerPaid(formData: FormData) {
+export async function markGameRosterPlayerPaid(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const rosterId = String(formData.get("roster_id") ?? "");
   const gameId = String(formData.get("game_id") ?? "");
-  if (!rosterId || !gameId) return;
+  if (!rosterId || !gameId) return fail("Jogador inválido.");
 
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  const { data: roster } = await supabase
+  const { data: roster, error: lookupError } = await supabase
     .from("game_players")
-    .select("id")
+    .select("id,payment_status")
     .eq("id", rosterId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id)
     .eq("attendance_status", "confirmed")
     .maybeSingle();
 
-  if (!roster) return;
+  if (lookupError || !roster) return fail("Jogador não encontrado neste jogo.");
+  if (roster.payment_status === "paid") return { ok: true, message: "Pagamento já estava registrado." };
+  if (roster.payment_status === "not_required") return fail("Este jogador não possui cobrança neste jogo.");
 
-  await supabase.rpc("mark_game_player_paid", { _game_player: roster.id });
+  const { error } = await supabase.rpc("mark_game_player_paid", { _game_player: roster.id });
+  if (error) return fail("Não foi possível registrar o pagamento.");
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/financeiro");
   revalidatePath("/dashboard");
   revalidatePath("/meu-grupo");
+
+  return { ok: true, message: "Pagamento registrado com sucesso." };
 }
 
 
-export async function updateGamePlayerTeam(formData: FormData) {
+export async function updateGamePlayerTeam(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const rosterId = String(formData.get("roster_id") ?? "");
   const gameId = String(formData.get("game_id") ?? "");
   const teamNumber = Number(formData.get("team_number") ?? 0);
-  if (!rosterId || !gameId || ![1, 2].includes(teamNumber)) return;
+
+  if (!rosterId || !gameId || ![1, 2].includes(teamNumber)) {
+    return fail("Alteração de time inválida.");
+  }
 
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  const { data: player } = await supabase
+  const { data: player, error: lookupError } = await supabase
     .from("game_players")
     .select("id,source,guest_confirmation_id,player_id")
     .eq("id", rosterId)
@@ -788,14 +841,16 @@ export async function updateGamePlayerTeam(formData: FormData) {
     .eq("attendance_status", "confirmed")
     .maybeSingle();
 
-  if (!player) return;
+  if (lookupError || !player) return fail("Jogador não encontrado neste jogo.");
 
-  await supabase
+  const { error } = await supabase
     .from("game_players")
     .update({ team_number: teamNumber, updated_at: new Date().toISOString() })
     .eq("id", rosterId)
     .eq("organization_id", organization.id)
     .eq("game_id", gameId);
+
+  if (error) return fail("Não foi possível mover o jogador de time.");
 
   if (player.source === "guest" && player.guest_confirmation_id) {
     await supabase
@@ -817,7 +872,10 @@ export async function updateGamePlayerTeam(formData: FormData) {
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/meu-grupo");
+
+  return { ok: true, message: `Jogador movido para o Time ${teamNumber}.` };
 }
+
 
 export async function completeGame(
   previous: GameActionState,
