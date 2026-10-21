@@ -220,6 +220,70 @@ function PromoteGuestForm({
   );
 }
 
+function RosterPaymentButton({
+  player,
+  gameId,
+}: {
+  player: GameRosterPlayer;
+  gameId: string;
+}) {
+  const [state, action, pending] = useActionState(markGameRosterPlayerPaid, initialState);
+
+  return (
+    <div className="min-w-0 flex-1">
+      <form action={action}>
+        <input type="hidden" name="roster_id" value={player.id} />
+        <input type="hidden" name="game_id" value={gameId} />
+        <button
+          disabled={pending}
+          className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-3 text-xs font-bold text-[var(--success)] disabled:opacity-50"
+          title="Marcar pagamento deste jogo como recebido"
+        >
+          <CircleDollarSign size={15} />
+          {pending ? "Salvando..." : "Marcar pago"}
+        </button>
+      </form>
+      {state.message ? (
+        <p className={`mt-1 text-[11px] ${state.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+          {state.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function DrawTeamsForm({
+  gameId,
+  count,
+  hasDraw,
+}: {
+  gameId: string;
+  count: number;
+  hasDraw: boolean;
+}) {
+  const [state, action, pending] = useActionState(drawPublicGameTeams, initialState);
+
+  return (
+    <div>
+      <form action={action}>
+        <input type="hidden" name="game_id" value={gameId} />
+        <button
+          disabled={count < 2 || pending}
+          className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-[#01111d] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Shuffle size={17} />
+          {pending ? "Sorteando..." : hasDraw ? "Sortear novamente" : "Sortear 2 times"}
+        </button>
+      </form>
+      {state.message ? (
+        <p className={`mt-2 text-xs ${state.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+          {state.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function MoveTeamButton({
   player,
   gameId,
@@ -300,14 +364,7 @@ function PlayerRow({
               Pago
             </span>
           ) : player.payment_status === "pending" ? (
-            <form action={markGameRosterPlayerPaid} className="min-w-0 flex-1">
-              <input type="hidden" name="roster_id" value={player.id} />
-              <input type="hidden" name="game_id" value={gameId} />
-              <button className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-3 text-xs font-bold text-[var(--success)]">
-                <CircleDollarSign size={15} />
-                Marcar pago
-              </button>
-            </form>
+            <RosterPaymentButton player={player} gameId={gameId} />
           ) : (
             <span className="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-white/[.03] px-3 text-xs font-bold text-[var(--muted)]">
               Sem cobrança
@@ -483,17 +540,7 @@ function PlayerRow({
       <div className="mt-3 flex items-center gap-2">
         {player.attendance_status === "confirmed" &&
         player.payment_status !== "paid" ? (
-          <form action={markGameRosterPlayerPaid} className="min-w-0 flex-1">
-            <input type="hidden" name="roster_id" value={player.id} />
-            <input type="hidden" name="game_id" value={gameId} />
-            <button
-              className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--success)]/30 px-3 text-xs font-bold text-[var(--success)]"
-              title="Marcar pagamento deste jogo como recebido"
-            >
-              <CircleDollarSign size={15} />
-              Marcar pago
-            </button>
-          </form>
+          <RosterPaymentButton player={player} gameId={gameId} />
         ) : (
           <div className="min-w-0 flex-1" />
         )}
@@ -656,16 +703,7 @@ export function PublicGameInviteCard({
           </div>
 
           {game.status === "scheduled" ? (
-            <form action={drawPublicGameTeams}>
-              <input type="hidden" name="game_id" value={game.id} />
-              <button
-                disabled={confirmed.length < 2}
-                className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-[#01111d] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Shuffle size={17} />
-                {hasDraw ? "Sortear novamente" : "Sortear 2 times"}
-              </button>
-            </form>
+            <DrawTeamsForm gameId={game.id} count={confirmed.length} hasDraw={hasDraw} />
           ) : null}
         </div>
       </div>
