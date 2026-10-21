@@ -6,14 +6,9 @@ import {
   getPublicGameInviteResponses,
   getPublicGameRoster,
 } from "@/lib/queries/games";
-import type { GuestPosition, GuestSportType } from "@/types/games";
+import type { GuestPosition } from "@/types/games";
 
 export const dynamic = "force-dynamic";
-
-const sportLabels: Record<GuestSportType, string> = {
-  futsal: "Futsal",
-  football: "Futebol",
-};
 
 const positionLabels: Record<GuestPosition, string> = {
   goalkeeper: "Goleiro",
