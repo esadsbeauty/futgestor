@@ -21,6 +21,14 @@ export function ParticipantProfile({ organization, participant }: { organization
         <div className="flex gap-3"><CalendarDays size={19} className="text-[var(--brand)]"/><div><p className="text-xs text-[var(--muted)]">Vencimento</p><p className="mt-1 font-semibold">Dia {participant.due_day}</p></div></div>
         <div><p className="text-xs text-[var(--muted)]">Data de entrada</p><p className="mt-1 font-semibold">{formatDate(participant.joined_at)}</p></div>
       </div>
+      <div className="mt-5 grid gap-3 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
+        <div><p className="text-xs text-[var(--muted)]">Posição no futsal</p><p className="mt-1 font-semibold">{participant.default_futsal_position ? ({
+          goalkeeper: "Goleiro", fixed: "Fixo", winger: "Ala", pivot: "Pivô", other: "Outra"
+        } as Record<string,string>)[participant.default_futsal_position] : "Não definida"}</p></div>
+        <div><p className="text-xs text-[var(--muted)]">Posição no campo</p><p className="mt-1 font-semibold">{participant.default_field_position ? ({
+          goalkeeper: "Goleiro", full_back: "Lateral", center_back: "Zagueiro", defensive_mid: "Volante", midfielder: "Meio-campo", winger: "Ponta", striker: "Atacante", other: "Outra"
+        } as Record<string,string>)[participant.default_field_position] : "Não definida"}</p></div>
+      </div>
       {participant.notes && <div className="mt-6 border-t border-[var(--border)] pt-5"><p className="text-xs text-[var(--muted)]">Observações</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6">{participant.notes}</p></div>}
     </section>
     <ParticipantForm open={editing} onClose={close} organization={organization} participant={participant}/>
