@@ -283,40 +283,68 @@ export async function createAdminInvite(
   }
 }
 
-export async function removeOrganizationAdmin(formData: FormData) {
+export async function removeOrganizationAdmin(
+  previous: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
   const memberId = String(formData.get("member_id") ?? "");
+  if (!memberId) return failure(previous, "Administrador inválido.");
 
   try {
     const { organization, supabase } = await requireOrganizationOwner();
 
-    await supabase
+    const { error } = await supabase
       .from("organization_members")
       .delete()
       .eq("id", memberId)
       .eq("organization_id", organization.id)
       .eq("role", "admin");
 
+    if (error) return failure(previous, "Não foi possível remover o administrador.");
+
     revalidatePath("/configuracoes");
-  } catch {
-    return;
+    return {
+      ok: true,
+      message: "Administrador removido.",
+      revision: previous.revision + 1,
+    };
+  } catch (error) {
+    return failure(
+      previous,
+      error instanceof Error ? error.message : "Não foi possível remover o administrador."
+    );
   }
 }
 
-export async function deactivateAdminInvite(formData: FormData) {
+export async function deactivateAdminInvite(
+  previous: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
   const inviteId = String(formData.get("invite_id") ?? "");
+  if (!inviteId) return failure(previous, "Convite inválido.");
 
   try {
     const { organization, supabase } = await requireOrganizationOwner();
 
-    await supabase
+    const { error } = await supabase
       .from("admin_invites")
       .update({ active: false })
       .eq("id", inviteId)
       .eq("organization_id", organization.id);
 
+    if (error) return failure(previous, "Não foi possível cancelar o convite.");
+
     revalidatePath("/configuracoes");
-  } catch {
-    return;
+    return {
+      ok: true,
+      message: "Convite cancelado.",
+      revision: previous.revision + 1,
+    };
+  } catch (error) {
+    return failure(
+      previous,
+      error instanceof Error ? error.message : "Não foi possível cancelar o convite."
+    );
   }
 }
 
