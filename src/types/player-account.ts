@@ -98,4 +98,5 @@ export type PlayerConfirmedRosterEntry = {
   player_name: string;
   source: "guest" | "participant";
   position: import("@/types/games").GuestPosition | null;
+  team_number: number | null;
 };
