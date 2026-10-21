@@ -418,3 +418,16 @@ export async function getPublicGameTeams(
   if (error) return [];
   return (data ?? []) as PublicGameTeamEntry[];
 }
+
+
+export async function getPublicGameRoster(
+  token: string
+): Promise<PublicGameTeamEntry[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_public_game_roster", {
+    _token: token,
+  });
+
+  if (error) return [];
+  return (data ?? []) as PublicGameTeamEntry[];
+}
