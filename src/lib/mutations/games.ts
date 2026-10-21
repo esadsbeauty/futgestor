@@ -419,6 +419,11 @@ export async function updatePublicGameConfirmation(
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
+  const { data: game, error: gameError } = await supabase.from("games")
+    .select("status").eq("id", gameId).eq("organization_id", organization.id).maybeSingle();
+  if (gameError || !game) return fail("Jogo não encontrado.");
+  if (game.status !== "scheduled") return fail("Não é possível alterar participantes após o encerramento ou cancelamento.");
+
   const { data: confirmation, error: lookupError } = await supabase
     .from("game_guest_confirmations")
     .select("id,payment_status,player_id")
@@ -502,6 +507,11 @@ export async function removePublicGameConfirmation(
 
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
+
+  const { data: game, error: gameError } = await supabase.from("games")
+    .select("status").eq("id", gameId).eq("organization_id", organization.id).maybeSingle();
+  if (gameError || !game) return fail("Jogo não encontrado.");
+  if (game.status !== "scheduled") return fail("Não é possível alterar participantes após o encerramento ou cancelamento.");
 
   const { data: confirmation, error: lookupError } = await supabase
     .from("game_guest_confirmations")
