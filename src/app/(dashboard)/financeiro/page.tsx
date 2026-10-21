@@ -33,7 +33,7 @@ export default async function FinancePage({ searchParams }: { searchParams: Prom
     receivedFees: overview.receivedFees + gameOverview.received,
     openFees: overview.openFees + gameOverview.open,
   };
-  const today = new Date().toISOString().slice(0, 10);
+  const today = bahiaDateString();
   const defaultDate = selectedMonth === currentMonth ? today : referenceMonth;
 
   return <div className="mx-auto max-w-5xl pb-8">
