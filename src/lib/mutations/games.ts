@@ -73,7 +73,7 @@ export async function addPlayersToGame(
       .maybeSingle(),
     supabase
       .from("players")
-      .select("id,default_position")
+      .select("id,default_position,default_futsal_position,default_field_position")
       .eq("organization_id", organization.id)
       .eq("status", "active")
       .in("id", parsed.data.player_ids),
@@ -92,7 +92,10 @@ export async function addPlayersToGame(
       player_id: player.id,
       status: "confirmed",
       sport_type: sportType,
-      position: player.default_position,
+      position:
+        sportType === "football"
+          ? player.default_field_position ?? player.default_position
+          : player.default_futsal_position ?? player.default_position,
       responded_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })),
@@ -257,31 +260,30 @@ export async function drawPublicGameTeams(formData: FormData) {
   }
 
   const eligible = roster.filter((player) => player.position && player.sport_type);
-  const groups = new Map<string, typeof eligible>();
+  const shuffled = [...eligible].sort(() => Math.random() - 0.5);
+  const goalkeepers = shuffled.filter((player) => player.position === "goalkeeper");
+  const others = shuffled.filter((player) => player.position !== "goalkeeper");
 
-  for (const player of eligible) {
-    const key = `${player.sport_type}:${player.position}`;
-    const list = groups.get(key) ?? [];
-    list.push(player);
-    groups.set(key, list);
-  }
+  const teams: Record<1 | 2, typeof eligible> = { 1: [], 2: [] };
 
-  const assignments: { id: string; team: number; source: string; guestId: string | null; playerId: string | null }[] = [];
-  let nextTeam = 1;
+  const place = (player: (typeof eligible)[number]) => {
+    const samePosition1 = teams[1].filter((item) => item.position === player.position).length;
+    const samePosition2 = teams[2].filter((item) => item.position === player.position).length;
 
-  for (const group of groups.values()) {
-    const shuffled = [...group].sort(() => Math.random() - 0.5);
-    for (const player of shuffled) {
-      assignments.push({
-        id: player.id,
-        team: nextTeam,
-        source: player.source,
-        guestId: player.guest_confirmation_id,
-        playerId: player.player_id,
-      });
-      nextTeam = nextTeam === 1 ? 2 : 1;
+    let team: 1 | 2;
+    if (teams[1].length !== teams[2].length) {
+      team = teams[1].length < teams[2].length ? 1 : 2;
+    } else if (samePosition1 !== samePosition2) {
+      team = samePosition1 < samePosition2 ? 1 : 2;
+    } else {
+      team = Math.random() < 0.5 ? 1 : 2;
     }
-  }
+
+    teams[team].push(player);
+  };
+
+  goalkeepers.forEach(place);
+  others.forEach(place);
 
   await supabase
     .from("game_players")
@@ -289,29 +291,33 @@ export async function drawPublicGameTeams(formData: FormData) {
     .eq("organization_id", organization.id)
     .eq("game_id", gameId);
 
+  const assignments = ([1, 2] as const).flatMap((team) =>
+    teams[team].map((player) => ({ ...player, team }))
+  );
+
   await Promise.all(
-    assignments.map(async ({ id, team, source, guestId, playerId }) => {
+    assignments.map(async (player) => {
       await supabase
         .from("game_players")
-        .update({ team_number: team, updated_at: new Date().toISOString() })
-        .eq("id", id)
+        .update({ team_number: player.team, updated_at: new Date().toISOString() })
+        .eq("id", player.id)
         .eq("organization_id", organization.id)
         .eq("game_id", gameId);
 
-      if (source === "guest" && guestId) {
+      if (player.source === "guest" && player.guest_confirmation_id) {
         await supabase
           .from("game_guest_confirmations")
-          .update({ team_number: team, updated_at: new Date().toISOString() })
-          .eq("id", guestId)
+          .update({ team_number: player.team, updated_at: new Date().toISOString() })
+          .eq("id", player.guest_confirmation_id)
           .eq("organization_id", organization.id)
           .eq("game_id", gameId);
       }
 
-      if (source === "participant" && playerId) {
+      if (player.source === "participant" && player.player_id) {
         await supabase
           .from("game_attendances")
-          .update({ team_number: team, updated_at: new Date().toISOString() })
-          .eq("player_id", playerId)
+          .update({ team_number: player.team, updated_at: new Date().toISOString() })
+          .eq("player_id", player.player_id)
           .eq("organization_id", organization.id)
           .eq("game_id", gameId);
       }
@@ -319,6 +325,7 @@ export async function drawPublicGameTeams(formData: FormData) {
   );
 
   revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/meu-grupo");
 }
 export async function updatePublicGameConfirmation(
   _: GameActionState,
@@ -389,9 +396,20 @@ export async function updatePublicGameConfirmation(
   if (error) return fail("Não foi possível atualizar o jogador.");
 
   if (confirmation.player_id && parsed.data.attendance_status === "confirmed" && parsed.data.position) {
+    const positionUpdate =
+      parsed.data.sport_type === "football"
+        ? {
+            default_position: parsed.data.position,
+            default_field_position: parsed.data.position,
+          }
+        : {
+            default_position: parsed.data.position,
+            default_futsal_position: parsed.data.position,
+          };
+
     await supabase
       .from("players")
-      .update({ default_position: parsed.data.position })
+      .update(positionUpdate)
       .eq("id", confirmation.player_id)
       .eq("organization_id", organization.id);
   }
@@ -515,7 +533,7 @@ export async function promoteGameGuestToParticipant(
 
   const { data: guest, error: guestError } = await supabase
     .from("game_guest_confirmations")
-    .select("id,name,attendance_status,player_id,position")
+    .select("id,name,attendance_status,player_id,position,sport_type")
     .eq("id", confirmationId)
     .eq("game_id", gameId)
     .eq("organization_id", organization.id)
@@ -748,4 +766,159 @@ export async function markGameRosterPlayerPaid(formData: FormData) {
   revalidatePath("/financeiro");
   revalidatePath("/dashboard");
   revalidatePath("/meu-grupo");
+}
+
+
+export async function updateGamePlayerTeam(formData: FormData) {
+  const rosterId = String(formData.get("roster_id") ?? "");
+  const gameId = String(formData.get("game_id") ?? "");
+  const teamNumber = Number(formData.get("team_number") ?? 0);
+  if (!rosterId || !gameId || ![1, 2].includes(teamNumber)) return;
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const { data: player } = await supabase
+    .from("game_players")
+    .select("id,source,guest_confirmation_id,player_id")
+    .eq("id", rosterId)
+    .eq("game_id", gameId)
+    .eq("organization_id", organization.id)
+    .eq("attendance_status", "confirmed")
+    .maybeSingle();
+
+  if (!player) return;
+
+  await supabase
+    .from("game_players")
+    .update({ team_number: teamNumber, updated_at: new Date().toISOString() })
+    .eq("id", rosterId)
+    .eq("organization_id", organization.id)
+    .eq("game_id", gameId);
+
+  if (player.source === "guest" && player.guest_confirmation_id) {
+    await supabase
+      .from("game_guest_confirmations")
+      .update({ team_number: teamNumber, updated_at: new Date().toISOString() })
+      .eq("id", player.guest_confirmation_id)
+      .eq("organization_id", organization.id)
+      .eq("game_id", gameId);
+  }
+
+  if (player.player_id) {
+    await supabase
+      .from("game_attendances")
+      .update({ team_number: teamNumber, updated_at: new Date().toISOString() })
+      .eq("player_id", player.player_id)
+      .eq("organization_id", organization.id)
+      .eq("game_id", gameId);
+  }
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/meu-grupo");
+}
+
+export async function completeGame(
+  previous: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
+  const gameId = String(formData.get("game_id") ?? "");
+  if (!gameId) return fail("Jogo inválido.");
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("games")
+    .update({ status: "completed", updated_at: new Date().toISOString() })
+    .eq("id", gameId)
+    .eq("organization_id", organization.id)
+    .eq("status", "scheduled")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) return fail("Não foi possível encerrar o jogo.");
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/jogos");
+  revalidatePath("/dashboard");
+  revalidatePath("/financeiro");
+  revalidatePath("/meu-grupo");
+
+  return { ok: true, message: "Jogo encerrado. Presenças e times ficaram bloqueados." };
+}
+
+export async function cancelGame(
+  previous: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
+  const gameId = String(formData.get("game_id") ?? "");
+  if (!gameId) return fail("Jogo inválido.");
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+
+  const { count: paidCount } = await supabase
+    .from("game_players")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organization.id)
+    .eq("game_id", gameId)
+    .eq("payment_status", "paid");
+
+  if ((paidCount ?? 0) > 0) {
+    return fail("Há pagamentos registrados neste jogo. Resolva esses pagamentos antes de cancelar.");
+  }
+
+  const { data, error } = await supabase
+    .from("games")
+    .update({
+      status: "canceled",
+      public_invite_active: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", gameId)
+    .eq("organization_id", organization.id)
+    .eq("status", "scheduled")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) return fail("Não foi possível cancelar o jogo.");
+
+  await Promise.all([
+    supabase
+      .from("game_charges")
+      .delete()
+      .eq("organization_id", organization.id)
+      .eq("game_id", gameId)
+      .eq("status", "pending"),
+    supabase
+      .from("game_players")
+      .update({
+        amount: 0,
+        payment_status: "not_required",
+        team_number: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", organization.id)
+      .eq("game_id", gameId)
+      .neq("payment_status", "paid"),
+    supabase
+      .from("game_attendances")
+      .update({ team_number: null, updated_at: new Date().toISOString() })
+      .eq("organization_id", organization.id)
+      .eq("game_id", gameId),
+    supabase
+      .from("game_guest_confirmations")
+      .update({ team_number: null, updated_at: new Date().toISOString() })
+      .eq("organization_id", organization.id)
+      .eq("game_id", gameId),
+  ]);
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/jogos");
+  revalidatePath("/dashboard");
+  revalidatePath("/financeiro");
+  revalidatePath("/meu-grupo");
+
+  return { ok: true, message: "Jogo cancelado. Cobranças pendentes foram removidas." };
 }
