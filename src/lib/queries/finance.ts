@@ -7,7 +7,9 @@ export function monthBounds(referenceMonth: string) {
   const [year, month] = referenceMonth.split("-").map(Number);
   if (!year || month < 1 || month > 12) throw new Error("Mês de referência inválido.");
   const start = `${year}-${String(month).padStart(2, "0")}-01`;
-  const next = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const next = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
   return { start, next };
 }
 
