@@ -20,10 +20,13 @@ import {
   promoteGameGuestToParticipant,
   removePublicGameConfirmation,
   updatePublicGameConfirmation,
+  updateGamePlayerTeam,
   type GameActionState,
   type GuestPromotionActionState,
 } from "@/lib/mutations/games";
 import type { BillingMode } from "@/types/billing";
+import { AddPlayersForm } from "@/components/futgestor/game-detail-actions";
+import type { Participant } from "@/types/participants";
 import type {
   Game,
   GameRosterPlayer,
@@ -217,6 +220,31 @@ function PromoteGuestForm({
   );
 }
 
+function MoveTeamButton({
+  player,
+  gameId,
+}: {
+  player: GameRosterPlayer;
+  gameId: string;
+}) {
+  if (!player.team_number) return null;
+  const target = player.team_number === 1 ? 2 : 1;
+
+  return (
+    <form action={updateGamePlayerTeam}>
+      <input type="hidden" name="roster_id" value={player.id} />
+      <input type="hidden" name="game_id" value={gameId} />
+      <input type="hidden" name="team_number" value={target} />
+      <button
+        className="min-h-10 rounded-xl border border-[var(--border)] px-3 text-xs font-bold text-[var(--brand)]"
+        title={`Mover para o Time ${target}`}
+      >
+        Mover p/ Time {target}
+      </button>
+    </form>
+  );
+}
+
 function PlayerRow({
   player,
   gameId,
@@ -265,7 +293,7 @@ function PlayerRow({
           </span>
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {player.payment_status === "paid" ? (
             <span className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--success)]/10 px-3 text-xs font-bold text-[var(--success)]">
               <CheckCircle2 size={15} />
@@ -285,6 +313,7 @@ function PlayerRow({
               Sem cobrança
             </span>
           )}
+          <MoveTeamButton player={player} gameId={gameId} />
         </div>
       </div>
     );
@@ -481,6 +510,8 @@ function PlayerRow({
           </button>
         ) : null}
 
+        <MoveTeamButton player={player} gameId={gameId} />
+
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -514,11 +545,13 @@ export function PublicGameInviteCard({
   confirmations,
   appUrl,
   billingMode,
+  eligiblePlayers,
 }: {
   game: Game;
   confirmations: GameRosterPlayer[];
   appUrl: string;
   billingMode: BillingMode;
+  eligiblePlayers: Participant[];
 }) {
   const [copied, setCopied] = useState(false);
   const inviteUrl = `${
@@ -533,6 +566,15 @@ export function PublicGameInviteCard({
   const confirmedGuests = guests.filter(
     (player) => player.attendance_status === "confirmed"
   );
+  const confirmedParticipants = confirmations.filter(
+    (player) =>
+      player.source === "participant" &&
+      player.attendance_status === "confirmed"
+  );
+  const expected = confirmed.reduce((total, player) => total + Number(player.amount ?? 0), 0);
+  const received = confirmed
+    .filter((player) => player.payment_status === "paid")
+    .reduce((total, player) => total + Number(player.amount ?? 0), 0);
   const declined = guests.filter(
     (player) => player.attendance_status === "declined"
   );
@@ -551,14 +593,13 @@ export function PublicGameInviteCard({
     <section className="mt-10">
       <div>
         <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[var(--brand)]">
-          Convite público
+          Partida
         </p>
         <h2 className="mt-2 text-xl font-black">
-          Confirmação e sorteio dos times
+          Jogadores do jogo
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Envie o link no grupo. Antes do sorteio, você pode corrigir, marcar
-          como não vai ou excluir qualquer jogador desta partida.
+          Uma única lista para presença, pagamento e sorteio. Participantes e convidados entram no mesmo fluxo.
         </p>
       </div>
 
@@ -582,6 +623,25 @@ export function PublicGameInviteCard({
           </button>
         </div>
 
+        <div className="mt-4">
+          <AddPlayersForm game={game.id} players={eligiblePlayers} />
+        </div>
+
+        <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-5 text-center">
+          <div className="rounded-xl bg-white/[.03] p-3">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Previsto</p>
+            <p className="mt-1 font-black">{expected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+          </div>
+          <div className="rounded-xl bg-white/[.03] p-3">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Recebido</p>
+            <p className="mt-1 font-black text-[var(--success)]">{received.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+          </div>
+          <div className="rounded-xl bg-white/[.03] p-3">
+            <p className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Em aberto</p>
+            <p className="mt-1 font-black text-[var(--warning)]">{(expected - received).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+          </div>
+        </div>
+
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-5">
           <div className="flex items-center gap-2 text-sm">
             <UsersRound size={17} className="text-[var(--brand)]" />
@@ -602,9 +662,9 @@ export function PublicGameInviteCard({
         </div>
       </div>
 
-      {confirmedGuests.length === 0 && declined.length === 0 ? (
+      {confirmed.length === 0 && declined.length === 0 ? (
         <div className="card mt-4 p-8 text-center text-sm text-[var(--muted)]">
-          Nenhum convidado respondeu por este link ainda.
+          Nenhum jogador confirmado ainda.
         </div>
       ) : hasDraw ? (
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -669,16 +729,33 @@ export function PublicGameInviteCard({
           ) : null}
         </div>
       ) : (
-        <div className="card mt-4 p-4">
-          <h3 className="font-black">Convidados</h3>
-          <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {confirmedGuests.map((player) => (
-              <PlayerRow key={player.id} player={player} gameId={game.id} billingMode={billingMode} />
-            ))}
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-black">Participantes</h3>
+              <span className="text-xs text-[var(--muted)]">{confirmedParticipants.length} confirmado(s)</span>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {confirmedParticipants.length ? confirmedParticipants.map((player) => (
+                <PlayerRow key={player.id} player={player} gameId={game.id} billingMode={billingMode} />
+              )) : <p className="rounded-xl bg-white/[.03] p-4 text-sm text-[var(--muted)]">Nenhum participante confirmou ainda.</p>}
+            </div>
+          </div>
+
+          <div className="card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-black">Convidados</h3>
+              <span className="text-xs text-[var(--muted)]">{confirmedGuests.length} confirmado(s)</span>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {confirmedGuests.length ? confirmedGuests.map((player) => (
+                <PlayerRow key={player.id} player={player} gameId={game.id} billingMode={billingMode} />
+              )) : <p className="rounded-xl bg-white/[.03] p-4 text-sm text-[var(--muted)]">Nenhum convidado confirmado.</p>}
+            </div>
           </div>
 
           {declined.length ? (
-            <div className="mt-5 border-t border-[var(--border)] pt-4">
+            <div className="card lg:col-span-2 p-4">
               <h3 className="font-black">Não vão</h3>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {declined.map((player) => (
