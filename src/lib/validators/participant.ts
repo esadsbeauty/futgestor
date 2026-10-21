@@ -11,15 +11,20 @@ export const participantSchema = z.object({
   joined_at: z.iso.date({ error: "Informe uma data de entrada válida." }),
   status: z.enum(["active", "inactive"], { error: "Selecione um status válido." }),
   billing_type: playerBillingTypeSchema,
-  default_position: z.enum([
+  default_futsal_position: z.enum([
     "goalkeeper",
     "fixed",
     "winger",
     "pivot",
+    "other",
+  ]).nullable(),
+  default_field_position: z.enum([
+    "goalkeeper",
     "full_back",
     "center_back",
     "defensive_mid",
     "midfielder",
+    "winger",
     "striker",
     "other",
   ]).nullable(),
