@@ -164,13 +164,11 @@ export default async function GamePage({
           </p>
 
           <h2 className="mt-2 text-xl font-black">
-            Presenças
+            Respostas dos participantes
           </h2>
 
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Acompanhe quem confirmou, quem ainda
-            não respondeu e quem informou que não
-            vai.
+            Os confirmados já aparecem em Jogadores do jogo. Aqui ficam principalmente quem ainda precisa responder ou informou que não vai.
           </p>
         </div>
 
@@ -235,8 +233,8 @@ export default async function GamePage({
           : null}
 
         <div className="card mt-4 divide-y divide-[var(--border)]">
-          {attendance.players.length ? (
-            attendance.players.map((player) => (
+          {attendance.players.some((player) => player.status !== "confirmed") ? (
+            attendance.players.filter((player) => player.status !== "confirmed").map((player) => (
               <article
                 key={player.player_id}
                 className="flex items-center justify-between gap-4 p-4"
@@ -274,7 +272,7 @@ export default async function GamePage({
             ))
           ) : (
             <p className="p-8 text-center text-[var(--muted)]">
-              Nenhum participante ativo.
+              Todos os participantes cadastrados já confirmaram presença.
             </p>
           )}
         </div>
