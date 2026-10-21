@@ -243,7 +243,10 @@ export async function confirmPublicGamePresence(
   };
 }
 
-export async function drawPublicGameTeams(formData: FormData) {
+export async function drawPublicGameTeams(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const gameId = String(formData.get("game_id") ?? "");
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
@@ -256,8 +259,7 @@ export async function drawPublicGameTeams(formData: FormData) {
     .eq("attendance_status", "confirmed");
 
   if (error || !roster?.length) {
-    revalidatePath(`/jogos/${gameId}`);
-    return;
+    return fail("Não há jogadores confirmados suficientes para o sorteio.");
   }
 
   const eligible = roster.filter((player) => player.position && player.sport_type);
@@ -327,6 +329,7 @@ export async function drawPublicGameTeams(formData: FormData) {
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/meu-grupo");
+  return { ok: true, message: "Times sorteados com sucesso." };
 }
 export async function updatePublicGameConfirmation(
   _: GameActionState,
@@ -742,10 +745,13 @@ export async function markPublicGameGuestPaid(formData: FormData) {
 }
 
 
-export async function markGameRosterPlayerPaid(formData: FormData) {
+export async function markGameRosterPlayerPaid(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
   const rosterId = String(formData.get("roster_id") ?? "");
   const gameId = String(formData.get("game_id") ?? "");
-  if (!rosterId || !gameId) return;
+  if (!rosterId || !gameId) return fail("Jogador inválido.");
 
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
@@ -759,14 +765,16 @@ export async function markGameRosterPlayerPaid(formData: FormData) {
     .eq("attendance_status", "confirmed")
     .maybeSingle();
 
-  if (!roster) return;
+  if (!roster) return fail("Jogador não encontrado neste jogo.");
 
-  await supabase.rpc("mark_game_player_paid", { _game_player: roster.id });
+  const { error } = await supabase.rpc("mark_game_player_paid", { _game_player: roster.id });
+  if (error) return fail("Não foi possível registrar o pagamento.");
 
   revalidatePath(`/jogos/${gameId}`);
   revalidatePath("/financeiro");
   revalidatePath("/dashboard");
   revalidatePath("/meu-grupo");
+  return { ok: true, message: "Pagamento registrado." };
 }
 
 
