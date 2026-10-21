@@ -68,6 +68,14 @@ export type PlayerGameHistoryEntry = {
   location: string | null;
   player_price: number;
   status: string;
+  attendance_status: "confirmed" | "declined";
+  position: import("@/types/games").GuestPosition | null;
+  team_number: number | null;
+  payment_status: "pending" | "paid" | "not_required";
+  amount: number;
+  goals: number;
+  yellow_cards: number;
+  red_cards: number;
 };
 
 export type PlayerGamePaymentEntry = {
@@ -89,7 +97,10 @@ export type PlayerAccountData = {
   gameHistory: PlayerGameHistoryEntry[];
   gamePayments: PlayerGamePaymentEntry[];
   confirmedRoster: PlayerConfirmedRosterEntry[];
-  defaultPosition: import("@/types/games").GuestPosition | null;
+  defaultPositions: {
+    futsal: import("@/types/games").GuestPosition | null;
+    field: import("@/types/games").GuestPosition | null;
+  };
 };
 
 
@@ -99,4 +110,5 @@ export type PlayerConfirmedRosterEntry = {
   source: "guest" | "participant";
   position: import("@/types/games").GuestPosition | null;
   team_number: number | null;
+  is_current_user: boolean;
 };
