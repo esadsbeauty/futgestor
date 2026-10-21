@@ -843,6 +843,16 @@ export async function updateGamePlayerTeam(
 
   if (lookupError || !player) return fail("Jogador não encontrado neste jogo.");
 
+  const { data: game, error: gameError } = await supabase
+    .from("games")
+    .select("status")
+    .eq("id", gameId)
+    .eq("organization_id", organization.id)
+    .maybeSingle();
+
+  if (gameError || !game) return fail("Jogo não encontrado.");
+  if (game.status !== "scheduled") return fail("Os times de um jogo encerrado ou cancelado não podem ser alterados.");
+
   const { error } = await supabase
     .from("game_players")
     .update({ team_number: teamNumber, updated_at: new Date().toISOString() })
