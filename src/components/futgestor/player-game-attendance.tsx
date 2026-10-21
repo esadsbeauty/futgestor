@@ -98,9 +98,37 @@ export function PlayerGameAttendance({
       <div className="mt-5 rounded-2xl border border-[var(--border)] bg-white/[.025] p-4">
         <div className="flex items-center gap-2">
           <UsersRound size={17} className="text-[var(--brand)]" />
-          <p className="text-sm font-bold">Confirmados neste jogo</p>
+          <p className="text-sm font-bold">
+            {roster.some((entry) => entry.team_number) ? "Times sorteados" : "Confirmados neste jogo"}
+          </p>
         </div>
-        {roster.length ? (
+
+        {roster.some((entry) => entry.team_number) ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[1, 2].map((team) => {
+              const players = roster.filter((entry) => entry.team_number === team);
+              return (
+                <div key={team} className="rounded-xl border border-[var(--border)] bg-white/[.025] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-black">Time {team}</p>
+                    <span className="text-[11px] text-[var(--muted)]">{players.length} jogador(es)</span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {players.map((entry, index) => (
+                      <div key={`${entry.game_id}-${team}-${entry.player_name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-white/[.03] px-3 py-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{entry.player_name}</p>
+                          <p className="mt-0.5 text-[11px] text-[var(--muted)]">{entry.source === "guest" ? "Convidado" : "Participante"}</p>
+                        </div>
+                        {entry.position ? <span className="shrink-0 text-xs font-bold text-[var(--brand)]">{positionLabels[entry.position]}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : roster.length ? (
           <div className="mt-3 space-y-2">
             {roster.map((entry, index) => (
               <div key={`${entry.game_id}-${entry.source}-${entry.player_name}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-white/[.03] px-3 py-2.5">
