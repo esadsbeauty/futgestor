@@ -8,10 +8,10 @@ import {
   XCircle,
 } from "lucide-react";
 import {
-  AddPlayersForm,
   EditGameForm,
   ExpenseForm,
   GameEventForm,
+  GameLifecycleActions,
 } from "@/components/futgestor/game-detail-actions";
 import { GameSummary } from "@/components/futgestor/game-summary";
 import { PublicGameInviteCard } from "@/components/futgestor/public-game-invite-card";
@@ -23,16 +23,13 @@ import {
 import { gameFinancialSummary } from "@/lib/games";
 import { gameEventPlayers } from "@/lib/game-event-players";
 import {
-  payGameCharge,
   payGameExpense,
   removeGameEvent,
-  removePendingGameCharge,
 } from "@/lib/mutations/games";
 import {
   getEligiblePlayersForGame,
   getGameAttendanceSummary,
   getGameById,
-  getGameCharges,
   getGameEvents,
   getGameExpenses,
   getGameGuestConfirmations,
@@ -67,7 +64,6 @@ export default async function GamePage({
   const game = await getGameById(o.id, id);
 
   const [
-    charges,
     expenses,
     eligible,
     attendance,
@@ -75,7 +71,6 @@ export default async function GamePage({
     guestConfirmations,
     rosterPlayers,
   ] = await Promise.all([
-    getGameCharges(o.id, id),
     getGameExpenses(o.id, id),
     getEligiblePlayersForGame(
       o.id,
@@ -143,7 +138,10 @@ export default async function GamePage({
             </span>
           </div>
 
-          <EditGameForm game={game} />
+          <div>
+            <EditGameForm game={game} />
+            <GameLifecycleActions gameId={game.id} status={game.status} />
+          </div>
         </div>
       </header>
 
@@ -156,6 +154,7 @@ export default async function GamePage({
         confirmations={rosterPlayers}
         appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
         billingMode={o.billing_mode}
+        eligiblePlayers={eligible}
       />
 
       <section className="mt-10">
@@ -328,114 +327,6 @@ export default async function GamePage({
           ) : (
             <p className="p-8 text-center text-[var(--muted)]">
               Nenhum destaque registrado.
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section className="mt-10">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black">
-              Cobranças dos jogadores
-            </h2>
-
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              {formatCurrency(
-                game.player_price
-              )}{" "}
-              por novo jogador
-            </p>
-          </div>
-
-          <AddPlayersForm
-            game={id}
-            players={eligible}
-          />
-        </div>
-
-        <div className="card mt-4 divide-y divide-[var(--border)]">
-          {charges.length ? (
-            charges.map((c) => (
-              <article
-                key={c.id}
-                className="flex items-center gap-3 p-4"
-              >
-                <div className="flex-1">
-                  <p className="font-bold">
-                    {c.playerName}
-                  </p>
-
-                  <p
-                    className={`text-xs ${
-                      c.status === "paid"
-                        ? "text-[var(--success)]"
-                        : "text-[var(--warning)]"
-                    }`}
-                  >
-                    {c.status === "paid"
-                      ? "Pago"
-                      : "Pendente"}
-                  </p>
-                </div>
-
-                <strong>
-                  {formatCurrency(c.amount)}
-                </strong>
-
-                {c.status === "pending" && (
-                  <>
-                    <form
-                      action={payGameCharge}
-                    >
-                      <input
-                        type="hidden"
-                        name="charge_id"
-                        value={c.id}
-                      />
-
-                      <input
-                        type="hidden"
-                        name="game_id"
-                        value={id}
-                      />
-
-                      <button className="rounded-xl bg-[var(--success)] px-3 py-2 text-xs font-bold text-[#02150d]">
-                        Marcar como pago
-                      </button>
-                    </form>
-
-                    <form
-                      action={
-                        removePendingGameCharge
-                      }
-                    >
-                      <input
-                        type="hidden"
-                        name="charge_id"
-                        value={c.id}
-                      />
-
-                      <input
-                        type="hidden"
-                        name="game_id"
-                        value={id}
-                      />
-
-                      <button
-                        aria-label="Remover cobrança"
-                        className="p-2 text-[var(--danger)]"
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </form>
-                  </>
-                )}
-              </article>
-            ))
-          ) : (
-            <p className="p-8 text-center text-[var(--muted)]">
-              Nenhum jogador cobrado.
             </p>
           )}
         </div>
