@@ -4,6 +4,7 @@ import { formatDate } from "@/lib/formatters";
 import {
   getPublicGameInvite,
   getPublicGameInviteResponses,
+  getPublicGameTeams,
 } from "@/lib/queries/games";
 import type { GuestPosition, GuestSportType } from "@/types/games";
 
@@ -33,9 +34,10 @@ export default async function PublicGameInvitePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const [game, responses] = await Promise.all([
+  const [game, responses, teams] = await Promise.all([
     getPublicGameInvite(token),
     getPublicGameInviteResponses(token),
+    getPublicGameTeams(token),
   ]);
 
   if (!game) {
@@ -54,6 +56,9 @@ export default async function PublicGameInvitePage({
 
   const confirmed = responses.filter((item) => item.attendance_status === "confirmed");
   const declined = responses.filter((item) => item.attendance_status === "declined");
+  const teamOne = teams.filter((item) => item.team_number === 1);
+  const teamTwo = teams.filter((item) => item.team_number === 2);
+  const hasDraw = teamOne.length > 0 || teamTwo.length > 0;
 
   return (
     <main className="min-h-screen px-5 py-10">
@@ -88,6 +93,53 @@ export default async function PublicGameInvitePage({
             <PublicGameConfirmationForm token={token} />
           </div>
         </section>
+
+        {hasDraw ? (
+          <section className="lg:col-span-2">
+            <div className="mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[var(--brand)]">
+                Sorteio realizado
+              </p>
+              <h2 className="mt-2 text-xl font-black">Times sorteados</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Confira abaixo em qual time cada jogador ficou.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {[{ number: 1, players: teamOne }, { number: 2, players: teamTwo }].map((team) => (
+                <div key={team.number} className="card p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-black">Time {team.number}</h3>
+                    <span className="text-xs text-[var(--muted)]">
+                      {team.players.length} jogador(es)
+                    </span>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {team.players.map((player, index) => (
+                      <div
+                        key={`${team.number}-${player.player_name}-${index}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-white/[.025] px-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold">{player.player_name}</p>
+                          <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+                            {player.source === "guest" ? "Convidado" : "Participante"}
+                          </p>
+                        </div>
+                        {player.position ? (
+                          <span className="shrink-0 text-xs font-bold text-[var(--brand)]">
+                            {positionLabels[player.position]}
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="card p-5 sm:p-6">
           <div>
