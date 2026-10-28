@@ -497,6 +497,44 @@ export async function updatePublicGameConfirmation(
   return { ok: true, message: "Jogador atualizado." };
 }
 
+export async function removeParticipantFromGame(
+  _: GameActionState,
+  formData: FormData
+): Promise<GameActionState> {
+  const gameId = String(formData.get("game_id") ?? "");
+  const rosterId = String(formData.get("roster_id") ?? "");
+  if (!gameId || !rosterId) return fail("Jogador inválido.");
+
+  const organization = await getCurrentOrganizationForUser();
+  const supabase = await createClient();
+  const { data: game, error: gameError } = await supabase.from("games")
+    .select("status").eq("id", gameId).eq("organization_id", organization.id).maybeSingle();
+  if (gameError || !game) return fail("Jogo não encontrado.");
+  if (game.status !== "scheduled") return fail("Só é possível retirar jogadores de jogos agendados.");
+
+  const { data: roster, error: rosterError } = await supabase.from("game_players")
+    .select("player_id,payment_status,source")
+    .eq("id", rosterId).eq("game_id", gameId)
+    .eq("organization_id", organization.id).maybeSingle();
+  if (rosterError || !roster || roster.source !== "participant" || !roster.player_id)
+    return fail("Participante não encontrado nesta partida.");
+  if (roster.payment_status === "paid")
+    return fail("Pagamento recebido. Resolva o pagamento antes de retirar este jogador.");
+
+  // O trigger de presença limpa a escalação e a cobrança pendente, sem apagar o cadastro.
+  const { data: deleted, error } = await supabase.from("game_attendances")
+    .delete().eq("game_id", gameId).eq("organization_id", organization.id)
+    .eq("player_id", roster.player_id).select("id");
+  if (error || !deleted?.length) return fail("Não foi possível retirar este participante.");
+
+  revalidatePath(`/jogos/${gameId}`);
+  revalidatePath("/jogos");
+  revalidatePath("/financeiro");
+  revalidatePath("/dashboard");
+  revalidatePath("/meu-grupo");
+  return { ok: true, message: "Participante retirado somente desta partida." };
+}
+
 export async function removePublicGameConfirmation(
   _: GameActionState,
   formData: FormData
