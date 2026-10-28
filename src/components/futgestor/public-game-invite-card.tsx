@@ -19,6 +19,7 @@ import {
   markGameRosterPlayerPaid,
   promoteGameGuestToParticipant,
   removePublicGameConfirmation,
+  removeParticipantFromGame,
   updatePublicGameConfirmation,
   updateGamePlayerTeam,
   type GameActionState,
@@ -263,6 +264,23 @@ function MoveTeamButton({ player, gameId }: { player: GameRosterPlayer; gameId: 
   );
 }
 
+function RemoveParticipantButton({ player, gameId }: { player: GameRosterPlayer; gameId: string }) {
+  const [state, action, pending] = useActionState(removeParticipantFromGame, initialState);
+  return <div>
+    <form action={action} onSubmit={(event) => {
+      if (!window.confirm(`Retirar ${player.name} somente desta partida? O cadastro continuará ativo.`)) event.preventDefault();
+    }}>
+      <input type="hidden" name="roster_id" value={player.id} />
+      <input type="hidden" name="game_id" value={gameId} />
+      <button disabled={pending} aria-label={`Retirar ${player.name} deste jogo`} title="Retirar somente desta partida"
+        className="grid size-10 shrink-0 place-items-center rounded-xl border border-[var(--danger)]/30 text-[var(--danger)] disabled:opacity-50">
+        <Trash2 size={16} />
+      </button>
+    </form>
+    {state.message && <p className={`mt-1 text-[11px] ${state.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{state.message}</p>}
+  </div>;
+}
+
 function RemoveGuestButton({ player, gameId }: { player: GameRosterPlayer; gameId: string }) {
   const [state, action, pending] = useActionState(removePublicGameConfirmation, initialState);
   return (
@@ -365,6 +383,7 @@ function PlayerRow({
             </span>
           )}
           <MoveTeamButton player={player} gameId={gameId} />
+          {player.payment_status !== "paid" ? <RemoveParticipantButton player={player} gameId={gameId} /> : null}
         </div>
       </div>
     );
