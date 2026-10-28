@@ -498,7 +498,7 @@ export async function removeParticipantFromGame(
   const { data: game, error: gameError } = await supabase.from("games")
     .select("status").eq("id", gameId).eq("organization_id", organization.id).maybeSingle();
   if (gameError || !game) return fail("Jogo não encontrado.");
-  if (game.status !== "scheduled") return fail("Só é possível retirar jogadores de jogos agendados.");
+  if (game.status === "canceled") return fail("Não é possível alterar um jogo cancelado.");
 
   const { data: roster, error: rosterError } = await supabase.from("game_players")
     .select("player_id,payment_status,source")
@@ -508,6 +508,17 @@ export async function removeParticipantFromGame(
     return fail("Participante não encontrado nesta partida.");
   if (roster.payment_status === "paid")
     return fail("Pagamento recebido. Resolva o pagamento antes de retirar este jogador.");
+
+  if (game.status === "completed") {
+    const { count, error: eventsError } = await supabase.from("game_events")
+      .select("id", { count: "exact", head: true })
+      .eq("game_id", gameId).eq("organization_id", organization.id)
+      .eq("player_id", roster.player_id);
+    if (eventsError) return fail("Não foi possível verificar os destaques deste jogador.");
+    if ((count ?? 0) > 0) {
+      return fail("Há gols ou cartões registrados para este jogador. Corrija esses registros antes de retirá-lo do jogo.");
+    }
+  }
 
   // O trigger de presença limpa a escalação e a cobrança pendente, sem apagar o cadastro.
   const { data: deleted, error } = await supabase.from("game_attendances")
