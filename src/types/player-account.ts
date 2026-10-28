@@ -1,0 +1,114 @@
+import type { GameAttendanceStatus } from "@/types/player-portal";
+import type { PlayerBillingType } from "@/types/billing";
+
+export type PlayerAccountPortal = {
+  organization_id: string;
+  player_id: string;
+  organization_name: string;
+  player_name: string;
+  player_status: string;
+  billing_type: PlayerBillingType;
+  monthly_fee: number | null;
+  due_day: number | null;
+  participant_since: string;
+  show_cash_balance: boolean;
+  show_receivables: boolean;
+  show_payables: boolean;
+  show_pending_players: boolean;
+  show_individual_values: boolean;
+  available: boolean;
+};
+
+export type PlayerAccountGame = {
+  game_id: string;
+  title: string;
+  game_date: string;
+  start_time: string | null;
+  location: string | null;
+  player_price: number;
+  status: string;
+  attendance_status: GameAttendanceStatus;
+  attendance_locked: boolean;
+  game_format: "court" | "field";
+  attendance_position: import("@/types/games").GuestPosition | null;
+  default_position: import("@/types/games").GuestPosition | null;
+};
+
+export type PlayerAccountFinance = {
+  cash_balance: number | null;
+  receivables: number | null;
+  payables: number | null;
+};
+
+export type PlayerPendingAmount = {
+  player_name: string;
+  amount: number | null;
+};
+
+export type PlayerRecentGameEvent = {
+  game_id: string;
+  game_title: string;
+  game_date: string;
+  player_name: string;
+  event_type: "goal" | "yellow_card" | "red_card";
+  quantity: number;
+};
+
+export type PlayerGoalRankingEntry = {
+  player_key: string;
+  player_name: string;
+  goals: number;
+};
+
+export type PlayerGameHistoryEntry = {
+  game_id: string;
+  title: string;
+  game_date: string;
+  start_time: string | null;
+  location: string | null;
+  player_price: number;
+  status: string;
+  attendance_status: "confirmed" | "declined";
+  position: import("@/types/games").GuestPosition | null;
+  team_number: number | null;
+  payment_status: "pending" | "paid" | "not_required";
+  amount: number;
+  goals: number;
+  yellow_cards: number;
+  red_cards: number;
+};
+
+export type PlayerGamePaymentEntry = {
+  game_id: string;
+  game_title: string;
+  game_date: string;
+  player_name: string;
+  payment_status: "pending" | "paid" | "isento";
+  amount: number;
+};
+
+export type PlayerAccountData = {
+  portal: PlayerAccountPortal;
+  games: PlayerAccountGame[];
+  finance: PlayerAccountFinance | null;
+  pendingPlayers: PlayerPendingAmount[];
+  recentEvents: PlayerRecentGameEvent[];
+  goalRanking: PlayerGoalRankingEntry[];
+  gameHistory: PlayerGameHistoryEntry[];
+  gamePayments: PlayerGamePaymentEntry[];
+  confirmedRoster: PlayerConfirmedRosterEntry[];
+  defaultPositions: {
+    futsal: import("@/types/games").GuestPosition | null;
+    field: import("@/types/games").GuestPosition | null;
+  };
+};
+
+
+export type PlayerConfirmedRosterEntry = {
+  game_id: string;
+  player_name: string;
+  source: "guest" | "participant";
+  position: import("@/types/games").GuestPosition | null;
+  team_number: number | null;
+  is_current_user: boolean;
+};

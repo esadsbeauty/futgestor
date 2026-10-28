@@ -1,0 +1,2 @@
+-- Applied to production as migration 20261017164806.
+-- Adds participant game history and per-game payment transparency RPCs.
