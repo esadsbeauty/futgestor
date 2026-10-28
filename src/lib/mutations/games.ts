@@ -9,6 +9,7 @@ import { effectivePlayerBillingType, shouldGenerateMonthlyFee } from "@/lib/bill
 import { currentReferenceMonth } from "@/lib/queries/participants";
 import { z } from "zod";
 import { bahiaDateString } from "@/lib/timezone";
+import { balanceGameTeams } from "@/lib/team-balance";
 
 export type GameActionState={ok:boolean;message?:string;fieldErrors?:Record<string,string[]|undefined>};
 const fail=(message:string):GameActionState=>({ok:false,message});
@@ -318,31 +319,18 @@ export async function drawPublicGameTeams(
   if (eligible.length !== roster.length) {
     return fail("Defina a posição dos jogadores confirmados antes de sortear.");
   }
-  const shuffled = [...eligible].sort(() => Math.random() - 0.5);
-  const goalkeepers = shuffled.filter((player) => player.position === "goalkeeper");
-  const others = shuffled.filter((player) => player.position !== "goalkeeper");
-
-  const teams: Record<1 | 2, typeof eligible> = { 1: [], 2: [] };
-
-  const place = (player: (typeof eligible)[number]) => {
-    const samePosition1 = teams[1].filter((item) => item.position === player.position).length;
-    const samePosition2 = teams[2].filter((item) => item.position === player.position).length;
-
-    let team: 1 | 2;
-    if (teams[1].length !== teams[2].length) {
-      team = teams[1].length < teams[2].length ? 1 : 2;
-    } else if (samePosition1 !== samePosition2) {
-      team = samePosition1 < samePosition2 ? 1 : 2;
-    } else {
-      team = Math.random() < 0.5 ? 1 : 2;
-    }
-
-    teams[team].push(player);
-  };
-
-  goalkeepers.forEach(place);
-  others.forEach(place);
-
+  const ids = [...new Set(eligible.flatMap((player) => player.player_id ? [player.player_id] : []))];
+  const { data: levels, error: levelsError } = ids.length
+    ? await supabase.from("players").select("id,technical_level")
+        .eq("organization_id", organization.id).in("id", ids)
+    : { data: [], error: null };
+  if (levelsError) return fail("Não foi possível carregar as avaliações técnicas.");
+  const technicalLevels = new Map((levels ?? []).map((player) => [player.id, Number(player.technical_level)]));
+  const balanced = balanceGameTeams(eligible.map((player) => ({
+    ...player,
+    technicalLevel: player.player_id ? (technicalLevels.get(player.player_id) ?? 3) : 3,
+  })));
+  const teams = { 1: balanced.one, 2: balanced.two };
   const { error: clearError } = await supabase
     .from("game_players")
     .update({ team_number: null, updated_at: new Date().toISOString() })
