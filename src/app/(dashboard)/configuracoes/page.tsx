@@ -1,3 +1,4 @@
+import { DailyWordSettings } from "@/components/futgestor/daily-word-settings";
 import { SettingsForms } from "@/components/futgestor/settings-forms";
 import { getSettingsData } from "@/lib/queries/settings";
 
@@ -11,6 +12,7 @@ export default async function SettingsPage() {
       ? [{ href: "#administradores", label: "Administradores" }]
       : []),
     { href: "#financeiro", label: "Financeiro" },
+    ...(data.currentRole === "owner" || data.currentRole === "admin" ? [{ href: "#palavra-do-dia", label: "Palavra do Dia" }] : []),
     { href: "#perfil", label: "Meu perfil" },
     { href: "#seguranca", label: "Segurança" },
   ];
@@ -25,7 +27,7 @@ export default async function SettingsPage() {
       <nav aria-label="Seções das configurações" className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-2 lg:sticky lg:top-8 lg:mx-0 lg:block lg:self-start lg:px-0">
         {sections.map((section) => <a key={section.href} href={section.href} className="focus-ring block shrink-0 rounded-2xl border border-[var(--border)] bg-[var(--surface-glass)] px-4 py-3 text-sm font-semibold text-[var(--muted)] transition hover:border-[var(--border-strong)] hover:text-white lg:mb-2">{section.label}</a>)}
       </nav>
-      <SettingsForms data={data}/>
+      <div><SettingsForms data={data}/>{(data.currentRole === "owner" || data.currentRole === "admin") ? <DailyWordSettings/> : null}</div>
     </div>
   </div>;
 }
