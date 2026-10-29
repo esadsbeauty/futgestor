@@ -1,4 +1,5 @@
 import { CalendarDays, CheckCircle2, Link2Off, MapPin, XCircle } from "lucide-react";
+import { WordOfTheDay } from "@/components/futgestor/word-of-the-day";
 import { PublicGameConfirmationForm } from "@/components/futgestor/public-game-confirmation-form";
 import { formatDate } from "@/lib/formatters";
 import {
@@ -57,6 +58,7 @@ export default async function PublicGameInvitePage({
 
   return (
     <main className="min-h-screen px-5 py-10">
+      <WordOfTheDay />
       <div className="mx-auto grid w-full max-w-4xl gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,.9fr)]">
         <section className="card glow-card p-7 sm:p-9">
           <div className="text-center">
