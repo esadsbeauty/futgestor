@@ -3,16 +3,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, X } from "lucide-react";
 
-// Referências bíblicas com reflexões originais, sem reproduzir tradução protegida.
-const messages = [
-  { reference: "Provérbios 16:3", title: "Entregue seus planos", reflection: "Apresente seus projetos a Deus e faça sua parte com dedicação e responsabilidade." },
-  { reference: "Salmos 133:1", title: "Valorize a união", reflection: "A convivência em harmonia fortalece o grupo dentro e fora da quadra." },
-  { reference: "Filipenses 4:13", title: "Força para prosseguir", reflection: "Nos momentos difíceis, lembre-se de buscar força e perseverança na fé." },
-  { reference: "Gálatas 6:9", title: "Não desista de fazer o bem", reflection: "Cada atitude de respeito e generosidade importa, mesmo quando ninguém está olhando." },
-  { reference: "Provérbios 27:17", title: "Crescemos juntos", reflection: "Companheiros se ajudam a melhorar no esporte, e amizades verdadeiras nos fazem crescer." },
-  { reference: "Colossenses 3:23", title: "Dê o seu melhor", reflection: "Faça cada tarefa com dedicação, respeito e um coração disposto." },
-  { reference: "Josué 1:9", title: "Coragem e fé", reflection: "Tenha coragem diante dos desafios e mantenha a confiança em Deus." },
-];
+type DailyMessage = {reference:string;title:string;reflection:string};
 
 function localBahiaDate() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -25,6 +16,7 @@ function localBahiaDate() {
 export function WordOfTheDay() {
   const [date, setDate] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(true);
+  const [message, setMessage] = useState<DailyMessage | null>(null);
 
   useEffect(() => {
     const refresh = () => {
@@ -34,13 +26,21 @@ export function WordOfTheDay() {
       catch { setDismissed(false); }
     };
     refresh();
-    const id = window.setInterval(refresh, 60_000);
+    const load = async () => {
+      try {
+        const response = await fetch("/api/palavra-do-dia", { cache: "no-store" });
+        if (response.ok) {
+          const result = await response.json() as {message: DailyMessage};
+          setMessage(result.message);
+        }
+      } catch { /* preserve navigation when offline */ }
+    };
+    void load();
+    const id = window.setInterval(() => { refresh(); void load(); }, 60_000);
     return () => window.clearInterval(id);
   }, []);
 
-  if (!date || dismissed) return null;
-  const day = Math.floor(Date.parse(`${date}T12:00:00Z`) / 86400000);
-  const message = messages[((day % messages.length) + messages.length) % messages.length];
+  if (!date || dismissed || !message) return null;
 
   const close = () => {
     try { window.localStorage.setItem("futgestor-word-dismissed", date); } catch { /* storage may be disabled */ }
