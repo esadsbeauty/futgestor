@@ -1,3 +1,4 @@
+import { WordOfTheDay } from "@/components/futgestor/word-of-the-day";
 import Link from "next/link";
 import { CalendarDays, CircleDollarSign, House, Settings, Sparkles, Users } from "lucide-react";
 
@@ -19,6 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="relative mt-auto rounded-2xl border border-[var(--border)] bg-white/[.025] p-4"><Sparkles size={17} className="text-[var(--brand)]"/><p className="mt-3 text-xs font-semibold leading-5 text-white">Seu baba organizado</p><p className="text-xs leading-5 text-[var(--muted)]">Dentro e fora de campo.</p></div>
     </aside>
     <main className="min-w-0 px-4 pb-36 pt-6 sm:px-8 md:px-10 md:pb-14 md:pt-9 lg:px-14">{children}</main>
+    <WordOfTheDay />
     <nav className="mobile-bottom-nav flex justify-around rounded-[1.4rem] border border-[var(--border-strong)] bg-[#07142b]/95 p-2 shadow-[0_16px_50px_rgba(0,0,0,.55),0_0_30px_rgba(56,199,255,.08)] backdrop-blur-2xl md:hidden">{items.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className="focus-ring flex min-w-16 flex-col items-center gap-1.5 rounded-xl px-2 py-2 text-[10px] font-semibold text-[var(--muted)] transition active:bg-white/10 active:text-[var(--brand)]"><Icon size={20}/>{label}</Link>)}</nav>
   </div>;
 }
