@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BookOpen, X } from "lucide-react";
+import { annualMessageForDate } from "@/lib/daily-messages";
 
 type DailyMessage = {reference:string;title:string;reflection:string};
 
@@ -19,25 +20,51 @@ export function WordOfTheDay() {
   const [message, setMessage] = useState<DailyMessage | null>(null);
 
   useEffect(() => {
-    const refresh = () => {
+    let active = true;
+    let currentDate = "";
+    let requestCounter = 0;
+
+    const refresh = async () => {
       const today = localBahiaDate();
+      const dateChanged = today !== currentDate;
+      currentDate = today;
       setDate(today);
-      try { setDismissed(window.localStorage.getItem("futgestor-word-dismissed") === today); }
-      catch { setDismissed(false); }
-    };
-    refresh();
-    const load = async () => {
+
       try {
-        const response = await fetch("/api/palavra-do-dia", { cache: "no-store" });
-        if (response.ok) {
-          const result = await response.json() as {message: DailyMessage};
+        setDismissed(window.localStorage.getItem("futgestor-word-dismissed") === today);
+      } catch {
+        setDismissed(false);
+      }
+
+      // A mensagem local é específica do dia e aparece mesmo quando a API falha.
+      if (dateChanged) setMessage(annualMessageForDate(today));
+
+      const requestId = ++requestCounter;
+      try {
+        const response = await fetch(`/api/palavra-do-dia?dia=${today}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
+        if (!response.ok) return;
+        const result = await response.json() as { date: string; message: DailyMessage };
+        // Nunca exibir resposta antiga, inclusive após a virada do dia.
+        if (active && requestId === requestCounter && result.date === today && result.message?.reference && result.message?.reflection) {
           setMessage(result.message);
         }
-      } catch { /* preserve navigation when offline */ }
+      } catch {
+        // Mantém a mensagem diária local caso o visitante esteja sem conexão.
+      }
     };
-    void load();
-    const id = window.setInterval(() => { refresh(); void load(); }, 60_000);
-    return () => window.clearInterval(id);
+
+    void refresh();
+    const id = window.setInterval(() => void refresh(), 60_000);
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   if (!date || dismissed || !message) return null;
