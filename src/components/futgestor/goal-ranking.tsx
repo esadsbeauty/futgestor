@@ -17,6 +17,7 @@ export function GoalRanking({ ranking }: { ranking: GoalRankingEntry[] }) {
           <p className="text-[9px] font-bold uppercase tracking-[.18em] text-[var(--brand)]">Artilharia</p>
           <h2 className="mt-1 text-lg font-extrabold">Ranking de gols</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">Quem mais balançou a rede no grupo.</p>
+          <Link href="/ranking" className="mt-3 inline-flex text-xs font-bold text-[var(--brand)] underline underline-offset-4 hover:text-white">Ver ranking geral completo</Link>
         </div>
         <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[var(--warning)]/10 text-[var(--warning)]">
           <Trophy size={21} />
