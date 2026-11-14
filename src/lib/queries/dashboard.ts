@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { DashboardSnapshot, GoalRankingEntry } from "@/types/dashboard";
 import type { Bill, BillWithStatus, Transaction, TransactionWithOrigin } from "@/types/finance";
 
-async function getGoalRanking(organizationId: string): Promise<GoalRankingEntry[]> {
+export async function getCompleteGoalRanking(organizationId: string): Promise<GoalRankingEntry[]> {
   const supabase = await createClient();
   const { data: events, error: eventsError } = await supabase
     .from("game_events")
@@ -46,8 +46,7 @@ async function getGoalRanking(organizationId: string): Promise<GoalRankingEntry[
       playerName: player.name,
       goals: totals.get(player.id) ?? 0,
     }))
-    .sort((a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName, "pt-BR"))
-    .slice(0, 5);
+    .sort((a, b) => b.goals - a.goals || a.playerName.localeCompare(b.playerName, "pt-BR"));
 }
 async function getDashboardContext(organizationId: string) {
   const supabase = await createClient();
@@ -84,7 +83,7 @@ export async function getDashboardSnapshot(organizationId: string, referenceMont
     getMonthlyFees(organizationId, referenceMonth),
     getMonthlyTransactions(organizationId, referenceMonth),
     getCurrentBalanceTransactions(organizationId),
-    getGoalRanking(organizationId),
+    getCompleteGoalRanking(organizationId).then((ranking) => ranking.slice(0, 5)),
     getMonthlyGameFinancialOverview(organizationId, referenceMonth),
   ]);
   return {
