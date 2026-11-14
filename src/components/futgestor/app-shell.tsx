@@ -1,11 +1,12 @@
 import { WordOfTheDay } from "@/components/futgestor/word-of-the-day";
 import Link from "next/link";
-import { CalendarDays, CircleDollarSign, House, Settings, Sparkles, Users } from "lucide-react";
+import { CalendarDays, CircleDollarSign, House, Settings, Sparkles, Trophy, Users } from "lucide-react";
 
 const items = [
   { href: "/dashboard", label: "Início", icon: House },
   { href: "/participantes", label: "Participantes", icon: Users },
   { href: "/jogos", label: "Jogos", icon: CalendarDays },
+  { href: "/ranking", label: "Ranking", icon: Trophy },
   { href: "/financeiro", label: "Financeiro", icon: CircleDollarSign },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
