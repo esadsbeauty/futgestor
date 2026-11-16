@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   PlayerAccountData,
   PlayerAccountFinance,
@@ -62,9 +63,18 @@ export async function getMyPlayerAccount(): Promise<PlayerAccountData> {
     throw new Error("Não foi possível carregar sua área de participante.");
   }
 
+  const portal = portalData[0] as PlayerAccountPortal;
+  const visibleGames = (gamesData ?? []) as PlayerAccountGame[];
+  const scheduledIds = visibleGames.filter((game) => !game.attendance_locked).map((game) => game.game_id);
+  const { data: invites, error: invitesError } = scheduledIds.length
+    ? await createAdminClient().from("games").select("id, public_invite_token").eq("organization_id", portal.organization_id).eq("status", "scheduled").in("id", scheduledIds)
+    : { data: [], error: null };
+  if (invitesError) throw new Error("Não foi possível carregar os links dos jogos.");
+  const inviteTokens = new Map((invites ?? []).map((game) => [game.id, game.public_invite_token]));
+
   return {
-    portal: portalData[0] as PlayerAccountPortal,
-    games: (gamesData ?? []) as PlayerAccountGame[],
+    portal,
+    games: visibleGames.map((game) => ({ ...game, public_invite_token: inviteTokens.get(game.game_id) ?? null })),
     finance: (financeData?.[0] as PlayerAccountFinance | undefined) ?? null,
     pendingPlayers: (pendingData ?? []) as PlayerPendingAmount[],
     recentEvents: (eventsData ?? []) as PlayerRecentGameEvent[],
