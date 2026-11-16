@@ -149,7 +149,7 @@ export default async function GamePage({
       <PublicGameInviteCard
         game={game}
         confirmations={rosterPlayers}
-        appUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
+        appUrl="https://futgestor.esads.com.br"
         billingMode={o.billing_mode}
         eligiblePlayers={eligible}
       />
