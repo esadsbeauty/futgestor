@@ -10,6 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useActionState } from "react";
+import { ShareGameInvite } from "@/components/futgestor/share-game-invite";
 import {
   respondGameAttendance,
   type GameAttendanceActionState,
@@ -241,6 +242,7 @@ function GameCard({
         game={game}
         token={token}
       />
+      <ShareGameInvite inviteToken={game.public_invite_token} gameTitle={game.title} />
     </article>
   );
 }

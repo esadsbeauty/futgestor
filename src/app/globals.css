@@ -79,3 +79,23 @@ label > span:first-child { letter-spacing: .035em; }
 ::selection { color: #00101d; background: var(--brand); }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(143, 163, 189, .28); }
+
+
+.mobile-bottom-nav {
+  position: fixed !important;
+  left: .75rem;
+  right: .75rem;
+  bottom: calc(.75rem + env(safe-area-inset-bottom));
+  z-index: 60;
+  width: auto;
+  margin: 0;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+@supports (height: 100dvh) {
+  body {
+    min-height: 100dvh;
+  }
+}

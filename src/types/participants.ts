@@ -9,11 +9,17 @@ export type Organization = {
   default_monthly_fee: number;
   default_due_day: number;
   billing_mode: BillingMode;
+  show_cash_balance: boolean;
+  show_receivables: boolean;
+  show_payables: boolean;
+  show_pending_players: boolean;
+  show_individual_values: boolean;
 };
 
 export type Participant = {
   id: string;
   organization_id: string;
+  user_id: string | null;
   name: string;
   phone: string | null;
   monthly_fee: number;
@@ -21,6 +27,9 @@ export type Participant = {
   joined_at: string;
   status: PlayerState;
   billing_type: PlayerBillingType;
+  default_position: import("@/types/games").GuestPosition | null;
+  default_futsal_position: import("@/types/games").GuestPosition | null;
+  default_field_position: import("@/types/games").GuestPosition | null;
   notes: string | null;
   created_at: string;
 };

@@ -27,6 +27,7 @@ export type PlayerPortal = {
 
 export type PlayerPortalGame = {
   game_id: string;
+  public_invite_token?: string | null;
   title: string;
   game_date: string;
   start_time: string | null;

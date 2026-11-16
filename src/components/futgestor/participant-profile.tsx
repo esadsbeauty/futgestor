@@ -1,10 +1,27 @@
 "use client";
 
 import { CalendarDays, Pencil, Phone, WalletCards } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
+import { saveTechnicalLevel } from "@/lib/mutations/technical-level";
 import { ParticipantForm } from "@/components/futgestor/participant-form";
 import { formatCurrency, formatDate, initials } from "@/lib/formatters";
 import type { Organization, Participant } from "@/types/participants";
+
+function TechnicalLevelForm({ playerId, level }: { playerId: string; level: number }) {
+  const [state, action, pending] = useActionState(saveTechnicalLevel, { ok: false, message: "" });
+  return <form action={action} className="mt-5 flex flex-wrap items-end gap-3 border-t border-[var(--border)] pt-5">
+    <input type="hidden" name="player_id" value={playerId} />
+    <label className="flex-1 min-w-40"><span className="text-xs text-[var(--muted)]">Nível técnico (1 a 5)</span>
+      <select name="technical_level" defaultValue={level} className="input mt-1">
+        <option value="1">1 — Iniciante</option><option value="2">2 — Básico</option>
+        <option value="3">3 — Intermediário</option><option value="4">4 — Avançado</option>
+        <option value="5">5 — Destaque</option>
+      </select>
+    </label>
+    <button disabled={pending} className="min-h-11 rounded-xl bg-[var(--brand)] px-4 font-bold text-[#01111d] disabled:opacity-50">{pending ? "Salvando..." : "Salvar nível"}</button>
+    {state.message ? <p className={`w-full text-xs ${state.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{state.message}</p> : null}
+  </form>;
+}
 
 export function ParticipantProfile({ organization, participant }: { organization: Organization; participant: Participant }) {
   const [editing, setEditing] = useState(false);
@@ -21,6 +38,15 @@ export function ParticipantProfile({ organization, participant }: { organization
         <div className="flex gap-3"><CalendarDays size={19} className="text-[var(--brand)]"/><div><p className="text-xs text-[var(--muted)]">Vencimento</p><p className="mt-1 font-semibold">Dia {participant.due_day}</p></div></div>
         <div><p className="text-xs text-[var(--muted)]">Data de entrada</p><p className="mt-1 font-semibold">{formatDate(participant.joined_at)}</p></div>
       </div>
+      <div className="mt-5 grid gap-3 border-t border-[var(--border)] pt-5 sm:grid-cols-2">
+        <div><p className="text-xs text-[var(--muted)]">Posição no futsal</p><p className="mt-1 font-semibold">{participant.default_futsal_position ? ({
+          goalkeeper: "Goleiro", fixed: "Fixo", winger: "Ala", pivot: "Pivô", other: "Outra"
+        } as Record<string,string>)[participant.default_futsal_position] : "Não definida"}</p></div>
+        <div><p className="text-xs text-[var(--muted)]">Posição no campo</p><p className="mt-1 font-semibold">{participant.default_field_position ? ({
+          goalkeeper: "Goleiro", full_back: "Lateral", center_back: "Zagueiro", defensive_mid: "Volante", midfielder: "Meio-campo", winger: "Ponta", striker: "Atacante", other: "Outra"
+        } as Record<string,string>)[participant.default_field_position] : "Não definida"}</p></div>
+      </div>
+      <TechnicalLevelForm playerId={participant.id} level={Number((participant as Participant & { technical_level?: number }).technical_level ?? 3)} />
       {participant.notes && <div className="mt-6 border-t border-[var(--border)] pt-5"><p className="text-xs text-[var(--muted)]">Observações</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6">{participant.notes}</p></div>}
     </section>
     <ParticipantForm open={editing} onClose={close} organization={organization} participant={participant}/>

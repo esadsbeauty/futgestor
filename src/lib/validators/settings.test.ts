@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { billingModeSettingsSchema, financialSettingsSchema, organizationSettingsSchema, passwordSettingsSchema, profileSettingsSchema } from "./settings";
+import { billingModeSettingsSchema, financialSettingsSchema, financialTransparencySettingsSchema, organizationSettingsSchema, passwordSettingsSchema, profileSettingsSchema } from "./settings";
 
 describe("organizationSettingsSchema", () => {
   it("trims and accepts a valid name", () => expect(organizationSettingsSchema.parse({ name: "  Baba dos Amigos  " })).toEqual({ name: "Baba dos Amigos" }));
@@ -25,4 +25,9 @@ describe("passwordSettingsSchema", () => {
   it("accepts matching passwords with at least eight characters", () => expect(passwordSettingsSchema.safeParse({ password: "segura123", passwordConfirmation: "segura123" }).success).toBe(true));
   it("rejects a short password", () => expect(passwordSettingsSchema.safeParse({ password: "1234567", passwordConfirmation: "1234567" }).success).toBe(false));
   it("rejects different confirmation", () => expect(passwordSettingsSchema.safeParse({ password: "segura123", passwordConfirmation: "outrasenha" }).success).toBe(false));
+});
+
+
+describe("financialTransparencySettingsSchema", () => {
+  it("maps checked fields to booleans", () => expect(financialTransparencySettingsSchema.parse({ show_cash_balance: "on", show_receivables: null, show_payables: "on", show_pending_players: "on", show_individual_values: undefined })).toEqual({ show_cash_balance: true, show_receivables: false, show_payables: true, show_pending_players: true, show_individual_values: false }));
 });

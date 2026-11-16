@@ -44,3 +44,15 @@ export type FinancialOverview = {
   monthExpenses: number;
   monthResult: number;
 };
+
+
+export type GameFinancialOverview = {
+  expected: number;
+  received: number;
+  open: number;
+  totalExpenses: number;
+  paidExpenses: number;
+  openExpenses: number;
+  expectedResult: number;
+  receivedResult: number;
+};

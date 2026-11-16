@@ -14,9 +14,37 @@ export const financialSettingsSchema = z.object({
 
 export const profileSettingsSchema = z.object({
   name: z.string().trim().min(2, "Informe um nome com pelo menos 2 caracteres.").max(100, "O nome é muito longo."),
+  default_futsal_position: z.enum([
+    "goalkeeper",
+    "fixed",
+    "winger",
+    "pivot",
+    "other",
+  ]).nullable(),
+  default_field_position: z.enum([
+    "goalkeeper",
+    "full_back",
+    "center_back",
+    "defensive_mid",
+    "midfielder",
+    "winger",
+    "striker",
+    "other",
+  ]).nullable(),
 });
 
 export const passwordSettingsSchema = z.object({
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.").max(128, "A senha é muito longa."),
   passwordConfirmation: z.string(),
 }).refine((data) => data.password === data.passwordConfirmation, { message: "As senhas precisam ser iguais.", path: ["passwordConfirmation"] });
+
+
+const checkboxBoolean = z.union([z.literal("on"), z.literal("true"), z.literal("false"), z.null(), z.undefined()]).transform((value) => value === "on" || value === "true");
+
+export const financialTransparencySettingsSchema = z.object({
+  show_cash_balance: checkboxBoolean,
+  show_receivables: checkboxBoolean,
+  show_payables: checkboxBoolean,
+  show_pending_players: checkboxBoolean,
+  show_individual_values: checkboxBoolean,
+});

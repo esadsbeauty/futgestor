@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sortPortalGames } from "@/lib/player-portal";
 import type { PlayerAccessToken, PlayerPortal, PlayerPortalGame } from "@/types/player-portal";
 
@@ -9,7 +10,21 @@ export async function getPlayerPortal(token: string): Promise<{ portal: PlayerPo
     supabase.rpc("get_player_portal_games", { _token: token }),
   ]);
   if (portalError || gamesError || !portalData?.[0]?.available) return null;
-  return { portal: portalData[0] as PlayerPortal, games: sortPortalGames((gamesData ?? []) as PlayerPortalGame[]) };
+  const games = sortPortalGames((gamesData ?? []) as PlayerPortalGame[]);
+  const admin = createAdminClient();
+  const { data: access, error: accessError } = await admin.from("player_access_tokens")
+    .select("organization_id").eq("token", token).eq("active", true).maybeSingle();
+  if (accessError || !access?.organization_id) return null;
+  const organizationId: string = access.organization_id;
+  const gameIds = games.filter((game) => game.status === "scheduled").map((game) => game.game_id);
+  let tokens = new Map<string, string>();
+  if (organizationId && gameIds.length) {
+    const { data: invites, error: inviteError } = await createAdminClient().from("games")
+      .select("id, public_invite_token").eq("organization_id", organizationId).eq("status", "scheduled").in("id", gameIds);
+    if (inviteError) throw new Error("Não foi possível carregar os convites dos jogos.");
+    tokens = new Map((invites ?? []).filter((game) => game.public_invite_token).map((game) => [game.id, game.public_invite_token]));
+  }
+  return { portal: portalData[0] as PlayerPortal, games: games.map((game) => ({ ...game, public_invite_token: tokens.get(game.game_id) ?? null })) };
 }
 
 export async function getParticipantAccess(organizationId: string, playerId: string): Promise<PlayerAccessToken | null> {

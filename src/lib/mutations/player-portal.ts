@@ -63,26 +63,33 @@ export async function regeneratePlayerAccess(
   };
 }
 
-export async function deactivatePlayerAccess(formData: FormData) {
+export async function deactivatePlayerAccess(
+  _: PlayerAccessActionState,
+  formData: FormData
+): Promise<PlayerAccessActionState> {
   const parsed = playerAccessMutationSchema.safeParse({
     player_id: formData.get("player_id"),
   });
 
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    return { ok: false, message: "Participante inválido." };
+  }
 
   const organization = await getCurrentOrganizationForUser();
   const supabase = await createClient();
 
-  const { data: player } = await supabase
+  const { data: player, error: lookupError } = await supabase
     .from("players")
     .select("id")
     .eq("id", parsed.data.player_id)
     .eq("organization_id", organization.id)
     .maybeSingle();
 
-  if (!player) return;
+  if (lookupError || !player) {
+    return { ok: false, message: "Participante não encontrado." };
+  }
 
-  await supabase
+  const { error } = await supabase
     .from("player_access_tokens")
     .update({
       active: false,
@@ -92,7 +99,12 @@ export async function deactivatePlayerAccess(formData: FormData) {
     .eq("player_id", player.id)
     .eq("active", true);
 
+  if (error) {
+    return { ok: false, message: "Não foi possível desativar o link." };
+  }
+
   revalidatePath(`/participantes/${player.id}`);
+  return { ok: true, message: "Link de ativação desativado." };
 }
 
 export async function respondGameAttendance(

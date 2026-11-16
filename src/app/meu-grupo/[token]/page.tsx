@@ -1,4 +1,5 @@
 import { ShieldX } from "lucide-react";
+import { WordOfTheDay } from "@/components/futgestor/word-of-the-day";
 import { PlayerPortalView } from "@/components/futgestor/player-portal-view";
 import { getPlayerPortal } from "@/lib/queries/player-portal";
 import { portalTokenSchema } from "@/lib/validators/player-portal";
@@ -38,11 +39,10 @@ export default async function PlayerPortalPage({
 
   if (data) {
     return (
-      <PlayerPortalView
-        portal={data.portal}
-        games={data.games}
-        token={validToken}
-      />
+      <>
+        <WordOfTheDay />
+        <PlayerPortalView portal={data.portal} games={data.games} token={validToken} />
+      </>
     );
   }
 

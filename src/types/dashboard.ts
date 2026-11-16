@@ -1,4 +1,4 @@
-import type { BillWithStatus, FeeWithPlayer, FinancialOverview, TransactionWithOrigin } from "@/types/finance";
+import type { BillWithStatus, FeeWithPlayer, FinancialOverview, GameFinancialOverview, TransactionWithOrigin } from "@/types/finance";
 
 export type DashboardFeeSummary = {
   total: number;
@@ -6,6 +6,12 @@ export type DashboardFeeSummary = {
   pending: number;
   overdue: number;
   paidPercentage: number;
+};
+
+export type GoalRankingEntry = {
+  playerId: string;
+  playerName: string;
+  goals: number;
 };
 
 export type DashboardSnapshot = {
@@ -16,4 +22,6 @@ export type DashboardSnapshot = {
   fees: FeeWithPlayer[];
   upcomingBills: BillWithStatus[];
   recentTransactions: TransactionWithOrigin[];
+  goalRanking: GoalRankingEntry[];
+  gameOverview: GameFinancialOverview;
 };
