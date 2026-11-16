@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import { logoutPlayer } from "@/lib/mutations/player-account";
 import { formatCurrency, formatDate, firstName } from "@/lib/formatters";
 import { PlayerGameAttendance } from "@/components/futgestor/player-game-attendance";
+import { ShareGameInvite } from "@/components/futgestor/share-game-invite";
 import { PlayerPositionForm } from "@/components/futgestor/player-position-form";
 import type {
   PlayerAccountData,
@@ -82,6 +83,7 @@ function GameCard({
       </div>
 
       <PlayerGameAttendance game={game} roster={roster} />
+      {!game.attendance_locked && <ShareGameInvite inviteToken={game.public_invite_token} gameTitle={game.title} />}
     </article>
   );
 }
