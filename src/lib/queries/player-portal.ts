@@ -11,7 +11,11 @@ export async function getPlayerPortal(token: string): Promise<{ portal: PlayerPo
   ]);
   if (portalError || gamesError || !portalData?.[0]?.available) return null;
   const games = sortPortalGames((gamesData ?? []) as PlayerPortalGame[]);
-  const organizationId = portalData[0].organization_id;
+  const admin = createAdminClient();
+  const { data: access, error: accessError } = await admin.from("player_access_tokens")
+    .select("organization_id").eq("token", token).eq("active", true).maybeSingle();
+  if (accessError || !access?.organization_id) return null;
+  const organizationId: string = access.organization_id;
   const gameIds = games.filter((game) => game.status === "scheduled").map((game) => game.game_id);
   let tokens = new Map<string, string>();
   if (organizationId && gameIds.length) {
